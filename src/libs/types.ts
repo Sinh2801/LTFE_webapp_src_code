@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'admin'
+export type UserRole = 'user' | 'seller' | 'admin'
 
 export interface User {
     id: string
@@ -22,10 +22,27 @@ export interface Product {
     salePrice?: number // giá bán (nếu có giảm)
     category: string
     technologies: string[]
+    version?: string
+    license?: string
+    demoUrl?: string
     thumbnail?: string
     sellerName: string
+    sellerId?: string
     downloads: number
+    status?: ProductStatus
     createdAt: string
+    updatedAt?: string
+}
+
+export type ProductStatus = 'pending' | 'approved' | 'rejected' | 'hidden'
+
+export interface Category {
+    id: string
+    name: string
+    slug: string
+    description?: string
+    createdAt: string
+    updatedAt?: string
 }
 
 export type OrderStatus = 'pending' | 'paid' | 'failed'

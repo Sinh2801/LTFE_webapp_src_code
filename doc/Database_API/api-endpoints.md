@@ -163,10 +163,18 @@ Tham số truy vấn dự kiến:
 - page: Số trang.
 - limit: Số sản phẩm trên mỗi trang.
 - keyword: Từ khóa tìm kiếm.
+- category: Tên danh mục.
+- technology: Công nghệ.
+- minPrice, maxPrice: Khoảng giá.
+- sort: newest, popular, price-asc hoặc price-desc.
 
 Ví dụ:
 
 `GET /api/v1/products?page=1&limit=10&keyword=website`
+
+Response giả lập:
+
+`{ "success": true, "data": { "items": [], "pagination": { "page": 1, "limit": 10, "total": 0, "totalPages": 0 } } }`
 
 ### 4.2. GET /products/{id}
 
@@ -182,13 +190,15 @@ Response dự kiến:
 
 Request Body dự kiến:
 
-`{ "name": "Website bán hàng", "description": "Source code website", "price": 500000, "file_path": "private/products/file.zip" }`
+`{ "title": "Website bán hàng", "description": "Source code website", "price": 500000, "category": "Thương mại điện tử", "technologies": ["React", "TypeScript"], "version": "1.0.0", "license": "Personal", "demoUrl": "https://example.com/demo" }`
 
 Quy tắc:
 - Người đăng phải có quyền Seller.
 - Giá bán không được nhỏ hơn 0.
 - Backend tự xác định seller_id từ tài khoản đang đăng nhập.
 - Sản phẩm mới có thể được đặt trạng thái pending để chờ kiểm duyệt.
+- Fake API dùng trạng thái pending mặc định; danh sách và chi tiết public chỉ trả sản phẩm approved.
+- Các trường `version`, `license`, `demoUrl`, `thumbnail` là tùy chọn.
 
 ### 4.4. PUT /products/{id}
 
@@ -220,6 +230,21 @@ Các trạng thái dự kiến:
 - approved
 - rejected
 - hidden
+
+### 4.7. API Categories – Quản lý danh mục
+
+| Method | Endpoint | Chức năng | Quyền truy cập |
+|---|---|---|---|
+| GET | /categories | Lấy danh sách danh mục | Public |
+| POST | /categories | Tạo danh mục | Admin |
+| PUT | /categories/{id} | Cập nhật danh mục | Admin |
+| DELETE | /categories/{id} | Xóa danh mục chưa có sản phẩm | Admin |
+
+Request Body tạo/cập nhật:
+
+`{ "name": "Thương mại điện tử", "slug": "thuong-mai-dien-tu", "description": "Website bán hàng" }`
+
+Fake API sinh slug từ tên nếu request không gửi slug. Không cho tạo tên/slug trùng; không cho xóa danh mục đang được sản phẩm sử dụng.
 
 ---
 

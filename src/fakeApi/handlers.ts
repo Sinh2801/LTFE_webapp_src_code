@@ -1,5 +1,6 @@
 // Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
+import type { Category, Product, ProductStatus, UserRole } from '../libs/types'
 import { loadDb, nextId, saveDb, type FakeDb } from './db'
 import type { SeedUser } from './seed'
 
@@ -19,6 +20,7 @@ export class HttpError extends Error {
 
 interface Ctx {
     params: Record<string, string>
+    query: URLSearchParams
     body: unknown
     token: string | null
 }
@@ -82,13 +84,32 @@ interface PublicUser {
     id: string
     fullName: string
     email: string
+    role: UserRole
     createdAt: string
 }
 
 function publicUser(user: SeedUser): PublicUser {
     return {
-        id: user.id, fullName: user.fullName, email: user.email, createdAt: user.createdAt
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role ?? 'user',
+        createdAt: user.createdAt,
     }
+}
+
+function requireAdmin(db: FakeDb, token: string | null): SeedUser {
+    const user = requireUser(db, token)
+    if (user.role !== 'admin') throw new HttpError(403, 'Bạn không có quyền thực hiện thao tác này')
+    return user
+}
+
+function requireSeller(db: FakeDb, token: string | null): SeedUser {
+    const user = requireUser(db, token)
+    if (user.role !== 'seller' && user.role !== 'admin') {
+        throw new HttpError(403, 'Tài khoản chưa được cấp quyền người bán')
+    }
+    return user
 }
 
 function bodyObject(body: unknown): Record<string, unknown> {
@@ -140,6 +161,7 @@ add('POST', '/auth/register', async ({ body }) => {
         fullName,
         email,
         password,
+        role: 'user',
         createdAt: new Date().toISOString(),
     }
     const token = makeToken()
@@ -199,6 +221,246 @@ add('PUT', '/users/me/password', async ({ token, body }) => {
     return success(null, 200, 'Password updated')
 })
 
+const PRODUCT_STATUSES: ProductStatus[] = ['pending', 'approved', 'rejected', 'hidden']
+
+function optionalText(value: unknown, field: string, maxLength = 500): string | undefined {
+    if (value === undefined || value === null || value === '') return undefined
+    if (typeof value !== 'string' || value.length > maxLength) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', [`${field} không hợp lệ`])
+    }
+    return value.trim()
+}
+
+function requiredText(value: unknown, field: string, maxLength: number): string {
+    const text = optionalText(value, field, maxLength)
+    if (!text) throw new HttpError(422, 'Dữ liệu không hợp lệ', [`${field} là bắt buộc`])
+    return text
+}
+
+function validatedProductFields(input: Record<string, unknown>, current?: Product) {
+    const title = requiredText(input.title ?? current?.title, 'Tên sản phẩm', 200)
+    const description = requiredText(input.description ?? current?.description, 'Mô tả', 5000)
+    const category = requiredText(input.category ?? current?.category, 'Danh mục', 100)
+    const priceValue = input.price ?? current?.price
+    const price = typeof priceValue === 'number' ? priceValue : Number(priceValue)
+    if (!Number.isFinite(price) || price < 0) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Giá phải là số không âm'])
+    }
+
+    const saleValue = input.salePrice ?? current?.salePrice
+    const salePrice = saleValue === undefined ? undefined : Number(saleValue)
+    if (salePrice !== undefined && (!Number.isFinite(salePrice) || salePrice < 0 || salePrice > price)) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Giá khuyến mãi phải từ 0 đến giá gốc'])
+    }
+
+    const technologyValue = input.technologies ?? current?.technologies ?? []
+    if (!Array.isArray(technologyValue) || technologyValue.some((item) => typeof item !== 'string')) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Danh sách công nghệ không hợp lệ'])
+    }
+
+    return {
+        title,
+        description,
+        category,
+        price,
+        salePrice,
+        technologies: technologyValue.map((item: string) => item.trim()).filter(Boolean),
+        version: optionalText(input.version ?? current?.version, 'Phiên bản', 50),
+        license: optionalText(input.license ?? current?.license, 'License', 100),
+        demoUrl: optionalText(input.demoUrl ?? current?.demoUrl, 'Link demo', 1000),
+        thumbnail: optionalText(input.thumbnail ?? current?.thumbnail, 'Ảnh xem trước', 1000),
+    }
+}
+
+function categorySlug(name: string): string {
+    return name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+}
+
+function validatedCategory(input: Record<string, unknown>, current?: Category) {
+    const name = requiredText(input.name ?? current?.name, 'Tên danh mục', 100)
+    const description = optionalText(input.description ?? current?.description, 'Mô tả', 1000)
+    const slugInput = input.slug ?? current?.slug
+    const slug = optionalText(slugInput, 'Slug', 120) ?? categorySlug(name)
+    return { name, slug, description }
+}
+
+add('GET', '/products', async ({ query }) => {
+    const db = loadDb()
+    const page = Math.max(1, Number.parseInt(query.get('page') ?? '1', 10) || 1)
+    const limit = Math.min(100, Math.max(1, Number.parseInt(query.get('limit') ?? '10', 10) || 10))
+    const keyword = (query.get('keyword') ?? '').trim().toLocaleLowerCase('vi')
+    const category = (query.get('category') ?? '').trim().toLocaleLowerCase('vi')
+    const technology = (query.get('technology') ?? '').trim().toLocaleLowerCase('vi')
+    const minPrice = query.has('minPrice') ? Number(query.get('minPrice')) : undefined
+    const maxPrice = query.has('maxPrice') ? Number(query.get('maxPrice')) : undefined
+
+    if (minPrice !== undefined && (!Number.isFinite(minPrice) || minPrice < 0)) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['minPrice không hợp lệ'])
+    }
+    if (maxPrice !== undefined && (!Number.isFinite(maxPrice) || maxPrice < 0)) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['maxPrice không hợp lệ'])
+    }
+
+    const filtered = db.products
+        .filter((product) => product.status === 'approved')
+        .filter((product) => {
+            const searchable = [product.title, product.description, product.category, ...product.technologies]
+                .join(' ')
+                .toLocaleLowerCase('vi')
+            const productPrice = product.salePrice ?? product.price
+            return (!keyword || searchable.includes(keyword))
+                && (!category || product.category.toLocaleLowerCase('vi') === category)
+                && (!technology || product.technologies.some((item) => item.toLocaleLowerCase('vi') === technology))
+                && (minPrice === undefined || productPrice >= minPrice)
+                && (maxPrice === undefined || productPrice <= maxPrice)
+        })
+
+    const sort = query.get('sort')
+    if (sort === 'price-asc') filtered.sort((a, b) => (a.salePrice ?? a.price) - (b.salePrice ?? b.price))
+    else if (sort === 'price-desc') filtered.sort((a, b) => (b.salePrice ?? b.price) - (a.salePrice ?? a.price))
+    else if (sort === 'popular') filtered.sort((a, b) => b.downloads - a.downloads)
+    else filtered.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
+    const total = filtered.length
+    const totalPages = Math.ceil(total / limit)
+    const items = filtered.slice((page - 1) * limit, page * limit)
+    return success({ items, pagination: { page, limit, total, totalPages } })
+})
+
+add('GET', '/products/:id', async ({ params }) => {
+    const db = loadDb()
+    const product = db.products.find((item) => item.id === params.id && item.status === 'approved')
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    return success(product)
+})
+
+add('POST', '/products', async ({ body, token }) => {
+    const db = loadDb()
+    const user = requireSeller(db, token)
+    const input = bodyObject(body)
+    const fields = validatedProductFields(input)
+    if (!db.categories.some((category) => category.name === fields.category)) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Danh mục không tồn tại'])
+    }
+    const id = nextId(db, 'product')
+    const product: Product = {
+        id,
+        code: `SRC-${id.toUpperCase()}`,
+        ...fields,
+        sellerId: user.id,
+        sellerName: user.fullName,
+        downloads: 0,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+    }
+    db.products.push(product)
+    saveDb(db)
+    return success(product, 201, 'Product created and awaiting review')
+})
+
+add('PUT', '/products/:id', async ({ params, body, token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    const product = db.products.find((item) => item.id === params.id)
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    if (product.sellerId !== user.id) throw new HttpError(403, 'Bạn không sở hữu sản phẩm này')
+
+    const fields = validatedProductFields({ ...product, ...bodyObject(body) }, product)
+    if (!db.categories.some((category) => category.name === fields.category)) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Danh mục không tồn tại'])
+    }
+    Object.assign(product, fields, { updatedAt: new Date().toISOString() })
+    saveDb(db)
+    return success(product, 200, 'Product updated')
+})
+
+add('DELETE', '/products/:id', async ({ params, token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    const index = db.products.findIndex((item) => item.id === params.id)
+    if (index < 0) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    if (db.products[index].sellerId !== user.id) throw new HttpError(403, 'Bạn không sở hữu sản phẩm này')
+    db.products.splice(index, 1)
+    saveDb(db)
+    return success(null, 200, 'Product deleted')
+})
+
+add('PATCH', '/products/:id/status', async ({ params, body, token }) => {
+    const db = loadDb()
+    requireAdmin(db, token)
+    const product = db.products.find((item) => item.id === params.id)
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    const status = bodyObject(body).status
+    if (typeof status !== 'string' || !PRODUCT_STATUSES.includes(status as ProductStatus)) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Trạng thái sản phẩm không hợp lệ'])
+    }
+    product.status = status as ProductStatus
+    product.updatedAt = new Date().toISOString()
+    saveDb(db)
+    return success(product, 200, 'Product status updated')
+})
+
+add('GET', '/categories', async () => success(loadDb().categories))
+
+add('POST', '/categories', async ({ body, token }) => {
+    const db = loadDb()
+    requireAdmin(db, token)
+    const fields = validatedCategory(bodyObject(body))
+    if (db.categories.some((item) => item.name.toLocaleLowerCase('vi') === fields.name.toLocaleLowerCase('vi') || item.slug === fields.slug)) {
+        throw new HttpError(409, 'Tên hoặc slug danh mục đã tồn tại')
+    }
+    const category: Category = {
+        id: nextId(db, 'category'),
+        ...fields,
+        createdAt: new Date().toISOString(),
+    }
+    db.categories.push(category)
+    saveDb(db)
+    return success(category, 201, 'Category created')
+})
+
+add('PUT', '/categories/:id', async ({ params, body, token }) => {
+    const db = loadDb()
+    requireAdmin(db, token)
+    const category = db.categories.find((item) => item.id === params.id)
+    if (!category) throw new HttpError(404, 'Không tìm thấy danh mục')
+    const fields = validatedCategory(bodyObject(body), category)
+    if (db.categories.some((item) => item.id !== category.id && (item.name.toLocaleLowerCase('vi') === fields.name.toLocaleLowerCase('vi') || item.slug === fields.slug))) {
+        throw new HttpError(409, 'Tên hoặc slug danh mục đã tồn tại')
+    }
+    const previousName = category.name
+    Object.assign(category, fields, { updatedAt: new Date().toISOString() })
+    if (previousName !== category.name) {
+        db.products.forEach((product) => {
+            if (product.category === previousName) {
+                product.category = category.name
+                product.updatedAt = new Date().toISOString()
+            }
+        })
+    }
+    saveDb(db)
+    return success(category, 200, 'Category updated')
+})
+
+add('DELETE', '/categories/:id', async ({ params, token }) => {
+    const db = loadDb()
+    requireAdmin(db, token)
+    const category = db.categories.find((item) => item.id === params.id)
+    if (!category) throw new HttpError(404, 'Không tìm thấy danh mục')
+    if (db.products.some((product) => product.category === category.name)) {
+        throw new HttpError(409, 'Không thể xóa danh mục đang có sản phẩm')
+    }
+    db.categories = db.categories.filter((item) => item.id !== params.id)
+    saveDb(db)
+    return success(null, 200, 'Category deleted')
+})
+
 
 export async function handleFakeRequest(url: URL, init?: RequestInit): Promise<Response> {
     const method = (init?.method ?? 'GET').toUpperCase()
@@ -223,7 +485,7 @@ export async function handleFakeRequest(url: URL, init?: RequestInit): Promise<R
     if (!matched) return failure(404, `Không tìm thấy API: ${method} ${path}`)
 
     try {
-        return await matched.route.handler({ params: matched.params, body, token })
+        return await matched.route.handler({ params: matched.params, query: url.searchParams, body, token })
     } catch (error) {
         if (error instanceof HttpError) return failure(error.status, error.message, error.errors)
         console.error('[fake-api]', error)
