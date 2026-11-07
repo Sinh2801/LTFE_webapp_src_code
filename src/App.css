@@ -355,3 +355,229 @@
         width: 100%;
     }
 }
+
+/* SHARED UI COMPONENTS */
+.product-card {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 22px rgb(15 23 42 / 10%);
+}
+
+.product-card__image {
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #f1f5f9;
+}
+
+.product-card__image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-card__image-placeholder {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.product-card__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+}
+
+.product-card__category {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.product-card__title {
+    display: -webkit-box;
+    overflow: hidden;
+    margin: 0;
+    color: #123c70;
+    font-size: 1.05rem;
+    line-height: 1.4;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.product-card__technologies {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.product-card__technologies li {
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1765b5;
+    padding: 4px 9px;
+    font-size: 0.75rem;
+}
+
+.product-card__price {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.product-card__sale-price,
+.product-card__regular-price {
+    color: #1765b5;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.product-card__original-price {
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 24px 0;
+}
+
+.pagination__button {
+    min-width: 38px;
+    min-height: 38px;
+    border: 1px solid #dce1e9;
+    border-radius: 6px;
+    background: #fff;
+    color: #25364b;
+    cursor: pointer;
+}
+
+.pagination__button:hover:not(:disabled),
+.pagination__button[aria-current='page'] {
+    border-color: #1765b5;
+    background: #1765b5;
+    color: #fff;
+}
+
+.pagination__button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.pagination__ellipsis {
+    padding: 0 4px;
+    color: #64748b;
+}
+
+.loading {
+    display: flex;
+    min-height: 120px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #475569;
+}
+
+.loading__spinner {
+    width: 22px;
+    height: 22px;
+    border: 3px solid #dbeafe;
+    border-top-color: #1765b5;
+    border-radius: 50%;
+    animation: loading-spin 0.8s linear infinite;
+}
+
+@keyframes loading-spin {
+    to { transform: rotate(360deg); }
+}
+
+.toast-region {
+    position: fixed;
+    z-index: 1000;
+    top: 16px;
+    right: 16px;
+    display: grid;
+    width: min(380px, calc(100vw - 32px));
+    gap: 10px;
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid #cbd5e1;
+    border-left: 4px solid #1765b5;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgb(15 23 42 / 15%);
+    color: #25364b;
+}
+
+.toast--success { border-left-color: #16a34a; }
+.toast--error { border-left-color: #dc2626; }
+
+.toast__message { margin: 0; }
+
+.toast__close {
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.not-found-page {
+    display: grid;
+    min-height: 45vh;
+    place-content: center;
+    justify-items: center;
+    gap: 12px;
+    padding: 32px 20px;
+    text-align: center;
+}
+
+.not-found-page h1,
+.not-found-page p { margin: 0; }
+
+.not-found-page__link {
+    margin-top: 8px;
+    border-radius: 6px;
+    background: #1765b5;
+    color: #fff;
+    padding: 10px 16px;
+    text-decoration: none;
+}
+
+.not-found-page__link:hover { background: #124d8f; }
+
+@media (prefers-reduced-motion: reduce) {
+    .product-card,
+    .loading__spinner { animation: none; transition: none; }
+}
