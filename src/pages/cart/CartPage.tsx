@@ -1,37 +1,34 @@
-import { useSelector} from 'react-redux';
-import {selectCartTotal } from '../app/slices/cartSlice';
+import {useSelector, useDispatch} from 'react-redux';
+import {selectCartTotal, clearCart} from '../../app/slices/cartSlice.ts';
+import {CartItem} from './CartItem.tsx';
 
 function CartPage() {
 
     // Lấy dữ liệu giỏ hàng từ Redux Store
+    const dispatch = useDispatch();
     const cartItems = useSelector((state: any) => state.cart.items);
     const totalAmount = useSelector(selectCartTotal);
+
+    const clearAll = () => {
+        if(window.confirm('Bạn có chắc muốn làm sạch toàn bộ giỏ hàng?')) {
+            dispatch(clearCart())
+        }
+    }
 
     return (
         <>
             <div className="cart-page">
-                <h1 className="cart-title">Giỏ hàng của bạn</h1>
-                {cartItems.length === 0 ? (<p>Giỏ hàng đang trống. Hãy tìm thêm source code nhé!</p>) :
-                    (<div className="cart-layout">
+                <div className="cart-header">
+                    <h1 className="cart-title">Giỏ hàng của bạn</h1>
+                        <button className="btn-clear-all" onClick={clearAll}>
+                            Xóa tất cả
+                        </button>
+                </div>
+                    <div className="cart-layout">
                         {/* Cột trái: Danh sách Source Code */}
                         <div className="cart-items">
                             {cartItems.map((item: any) => (
-                                <div className="cart-item" key={item.id}>
-                                    <img src={item.image} alt={item.name} className="item-img" />
-
-                                    <div className="item-info">
-                                        <h3 className="item-name">{item.name}</h3>
-                                        <div className="item-price">
-                                            {(item.salePrice || item.price).toLocaleString('vi-VN')} đ
-                                        </div>
-                                    </div>
-
-                                    <div className="item-actions">
-                                        <button className="btn-remove">
-                                            Xóa
-                                        </button>
-                                    </div>
-                                </div>
+                                <CartItem key={item.id} item={item} />
                             ))}
                         </div>
 
@@ -55,7 +52,6 @@ function CartPage() {
                             </button>
                         </div>
                     </div>
-                )}
             </div>
         </>
     )

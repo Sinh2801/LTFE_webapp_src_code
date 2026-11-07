@@ -5,7 +5,7 @@ import AdminRoute from '../components/auth/AdminRoute';
 import MainLayout from '../components/layout/MainLayout';
 
 import HomePage from '../pages/HomePage';
-import CartPage from '../pages/CartPage';
+import CartPage from '../pages/cart/CartPage.tsx';
 import ProductsPage from '../pages/ProductsPage';
 import LoginPage from '../pages/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
