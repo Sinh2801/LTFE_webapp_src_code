@@ -1,11 +1,13 @@
 import {useSelector, useDispatch} from 'react-redux';
 import {selectCartTotal, clearCart} from '../../app/slices/cartSlice.ts';
+import { useNavigate } from 'react-router-dom';
 import {CartItem} from './CartItem.tsx';
 
 function CartPage() {
 
     // Lấy dữ liệu giỏ hàng từ Redux Store
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const cartItems = useSelector((state: any) => state.cart.items);
     const totalAmount = useSelector(selectCartTotal);
 
@@ -47,7 +49,7 @@ function CartPage() {
                                 <span>{totalAmount.toLocaleString('vi-VN')} đ</span>
                             </div>
 
-                            <button className="btn-checkout">
+                            <button className="btn-checkout" onClick={() => navigate('/checkout')}>
                                 Tiến hành thanh toán
                             </button>
                         </div>
