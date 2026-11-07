@@ -246,6 +246,15 @@ Request Body tạo/cập nhật:
 
 Fake API sinh slug từ tên nếu request không gửi slug. Không cho tạo tên/slug trùng; không cho xóa danh mục đang được sản phẩm sử dụng.
 
+### 4.8. Upload file sản phẩm
+
+| Method | Endpoint | Chức năng | Quyền truy cập |
+|---|---|---|---|
+| POST | /products/{id}/preview | Tải ảnh xem trước | Chủ sản phẩm |
+| POST | /products/{id}/source | Tải file source ZIP | Chủ sản phẩm |
+
+Cả hai endpoint nhận `multipart/form-data` với trường `file`. Ảnh nhận JPG, PNG hoặc WEBP, tối đa 5 MB. File source phải là ZIP, tối đa 25 MB. Fake API lưu file trong IndexedDB; ảnh preview được trả về cho giao diện, còn file ZIP không được trả trong response public. API download có kiểm tra quyền sẽ được làm ở T36.
+
 ---
 
 ## 5. Danh sách API Orders – Quản lý đơn hàng

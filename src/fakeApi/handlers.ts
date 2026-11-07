@@ -2,6 +2,7 @@
 import { API_BASE } from '../libs/apiClient'
 import type { Category, Product, ProductStatus, UserRole } from '../libs/types'
 import { loadDb, nextId, saveDb, type FakeDb } from './db'
+import { deleteProductFile, productPreviewUrl, saveProductFile } from './fileStore'
 import type { SeedUser } from './seed'
 
 const LATENCY_MS = 300
@@ -110,6 +111,49 @@ function requireSeller(db: FakeDb, token: string | null): SeedUser {
         throw new HttpError(403, 'Tài khoản chưa được cấp quyền người bán')
     }
     return user
+}
+
+function requireProductOwner(db: FakeDb, productId: string, token: string | null) {
+    const user = requireUser(db, token)
+    const product = db.products.find((item) => item.id === productId)
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    if (product.sellerId !== user.id && user.role !== 'admin') {
+        throw new HttpError(403, 'Bạn không sở hữu sản phẩm này')
+    }
+    return product
+}
+
+function getUploadFile(body: unknown): File {
+    if (!(body instanceof FormData)) throw new HttpError(400, 'Dữ liệu upload không hợp lệ')
+    const file = body.get('file')
+    if (!(file instanceof File) || file.size === 0) throw new HttpError(422, 'Vui lòng chọn file')
+    return file
+}
+
+function validatePreviewFile(file: File): void {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+        throw new HttpError(422, 'Chỉ nhận ảnh JPG, PNG hoặc WEBP')
+    }
+    if (file.size > 5 * 1024 * 1024) throw new HttpError(422, 'Ảnh không được lớn hơn 5 MB')
+}
+
+function validateZipFile(file: File): void {
+    if (!file.name.toLowerCase().endsWith('.zip')) throw new HttpError(422, 'File source phải có định dạng .zip')
+    const allowedTypes = ['application/zip', 'application/x-zip-compressed', 'application/octet-stream']
+    if (file.type && !allowedTypes.includes(file.type)) throw new HttpError(422, 'File source không đúng định dạng ZIP')
+    if (file.size > 25 * 1024 * 1024) throw new HttpError(422, 'File ZIP không được lớn hơn 25 MB')
+}
+
+async function publicProduct(product: FakeDb['products'][number]): Promise<Product> {
+    const { previewFileId, ...data } = product
+    delete data.sourceFileId
+    delete data.sourceFileName
+    delete data.sourceFileSize
+    if (!previewFileId) return data
+
+    const thumbnail = await productPreviewUrl(previewFileId)
+    return thumbnail ? { ...data, thumbnail } : data
 }
 
 function bodyObject(body: unknown): Record<string, unknown> {
@@ -329,7 +373,7 @@ add('GET', '/products', async ({ query }) => {
 
     const total = filtered.length
     const totalPages = Math.ceil(total / limit)
-    const items = filtered.slice((page - 1) * limit, page * limit)
+    const items = await Promise.all(filtered.slice((page - 1) * limit, page * limit).map(publicProduct))
     return success({ items, pagination: { page, limit, total, totalPages } })
 })
 
@@ -337,7 +381,7 @@ add('GET', '/products/:id', async ({ params }) => {
     const db = loadDb()
     const product = db.products.find((item) => item.id === params.id && item.status === 'approved')
     if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
-    return success(product)
+    return success(await publicProduct(product))
 })
 
 add('POST', '/products', async ({ body, token }) => {
@@ -385,10 +429,43 @@ add('DELETE', '/products/:id', async ({ params, token }) => {
     const user = requireUser(db, token)
     const index = db.products.findIndex((item) => item.id === params.id)
     if (index < 0) throw new HttpError(404, 'Không tìm thấy sản phẩm')
-    if (db.products[index].sellerId !== user.id) throw new HttpError(403, 'Bạn không sở hữu sản phẩm này')
+    if (db.products[index].sellerId !== user.id && user.role !== 'admin') {
+        throw new HttpError(403, 'Bạn không sở hữu sản phẩm này')
+    }
+    await deleteProductFile(db.products[index].previewFileId)
+    await deleteProductFile(db.products[index].sourceFileId)
     db.products.splice(index, 1)
     saveDb(db)
     return success(null, 200, 'Product deleted')
+})
+
+add('POST', '/products/:id/preview', async ({ params, body, token }) => {
+    const db = loadDb()
+    const product = requireProductOwner(db, params.id, token)
+    const file = getUploadFile(body)
+    validatePreviewFile(file)
+    const stored = await saveProductFile(product.id, 'preview', file)
+    await deleteProductFile(product.previewFileId)
+    product.previewFileId = stored.id
+    product.thumbnail = undefined
+    product.updatedAt = new Date().toISOString()
+    saveDb(db)
+    return success({ product: await publicProduct(product), fileName: stored.name, size: stored.size }, 201, 'Preview uploaded')
+})
+
+add('POST', '/products/:id/source', async ({ params, body, token }) => {
+    const db = loadDb()
+    const product = requireProductOwner(db, params.id, token)
+    const file = getUploadFile(body)
+    validateZipFile(file)
+    const stored = await saveProductFile(product.id, 'source', file)
+    await deleteProductFile(product.sourceFileId)
+    product.sourceFileId = stored.id
+    product.sourceFileName = stored.name
+    product.sourceFileSize = stored.size
+    product.updatedAt = new Date().toISOString()
+    saveDb(db)
+    return success({ productId: product.id, fileName: stored.name, size: stored.size }, 201, 'Source uploaded')
 })
 
 add('PATCH', '/products/:id/status', async ({ params, body, token }) => {
@@ -472,7 +549,7 @@ export async function handleFakeRequest(url: URL, init?: RequestInit): Promise<R
     const authorization = headers.get('Authorization') ?? ''
     const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : null
 
-    let body: unknown = undefined
+    let body: unknown = typeof FormData !== 'undefined' && init?.body instanceof FormData ? init.body : undefined
     if (typeof init?.body === 'string' && init.body.length > 0) {
         try {
             body = JSON.parse(init.body)
