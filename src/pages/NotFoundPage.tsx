@@ -1,9 +1,14 @@
+import { Link } from 'react-router-dom'
+
 function NotFoundPage() {
     return (
-        <div>
+        <section className="not-found-page">
             <h1>404 - Không tìm thấy trang</h1>
             <p>Đường dẫn bạn truy cập không tồn tại.</p>
-        </div>
+            <Link className="not-found-page__link" to="/">
+                Về trang chủ
+            </Link>
+        </section>
     )
 }
 
