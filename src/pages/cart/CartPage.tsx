@@ -1,5 +1,6 @@
-import { useSelector, useDispatch} from 'react-redux';
-import {removeFromCart, selectCartTotal, clearCart} from '../app/slices/cartSlice';
+import {useSelector, useDispatch} from 'react-redux';
+import {selectCartTotal, clearCart} from '../../app/slices/cartSlice.ts';
+import {CartItem} from './CartItem.tsx';
 
 function CartPage() {
 
@@ -14,12 +15,6 @@ function CartPage() {
         }
     }
 
-    const handleRemove = (id: string) => {
-        if (window.confirm('Bạn có chắc muốn xóa source code này khỏi giỏ hàng?')) {
-            dispatch(removeFromCart(id));
-        }
-    };
-
     return (
         <>
             <div className="cart-page">
@@ -33,22 +28,7 @@ function CartPage() {
                         {/* Cột trái: Danh sách Source Code */}
                         <div className="cart-items">
                             {cartItems.map((item: any) => (
-                                <div className="cart-item" key={item.id}>
-                                    <img src={item.image} alt={item.name} className="item-img" />
-
-                                    <div className="item-info">
-                                        <h3 className="item-name">{item.name}</h3>
-                                        <div className="item-price">
-                                            {(item.salePrice || item.price).toLocaleString('vi-VN')} đ
-                                        </div>
-                                    </div>
-
-                                    <div className="item-actions">
-                                        <button className="btn-remove" onClick={() => handleRemove(item.id)}>
-                                            Xóa
-                                        </button>
-                                    </div>
-                                </div>
+                                <CartItem key={item.id} item={item} />
                             ))}
                         </div>
 
