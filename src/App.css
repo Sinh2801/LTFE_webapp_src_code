@@ -170,10 +170,35 @@
     min-height: 60vh;
 }
 
+.cart-header {
+    width: 71.5%;
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
 .cart-title {
     color: #123c70;
     font-size: 24px;
-    margin-bottom: 24px;
+    margin-bottom: 0;
+}
+
+.btn-clear-all {
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #f87171;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+    align-self: flex-end;
+    margin-left: auto;
+}
+
+.btn-clear-all:hover {
+    background: #fee2e2;
 }
 
 .cart-layout {
