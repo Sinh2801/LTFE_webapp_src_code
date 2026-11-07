@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/auth/ProtectedRoute';
 import MainLayout from '../components/layout/MainLayout';
 
 import HomePage from '../pages/HomePage';
+import CartPage from '../pages/cart/CartPage.tsx';
 import ProductsPage from '../pages/ProductsPage';
 import LoginPage from '../pages/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
@@ -28,6 +29,10 @@ const router = createBrowserRouter([
                         element: <div>Trang cá nhân - Yêu cầu đăng nhập</div>,
                     },
                 ],
+            },
+            {
+                path: '/cart',
+                element: <CartPage />,
             },
             {
                 path: '*',
