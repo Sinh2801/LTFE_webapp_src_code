@@ -10,8 +10,15 @@ export interface FakeDb {
     seq: number
     users: SeedUser[]
     sessions: Record<string, string>
-    products: Product[]
+    products: FakeProduct[]
     categories: Category[]
+}
+
+export interface FakeProduct extends Product {
+    previewFileId?: string
+    sourceFileId?: string
+    sourceFileName?: string
+    sourceFileSize?: number
 }
 
 function seedDb(): FakeDb {
