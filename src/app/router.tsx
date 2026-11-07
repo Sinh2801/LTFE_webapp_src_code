@@ -5,6 +5,7 @@ import AdminRoute from '../components/auth/AdminRoute';
 import MainLayout from '../components/layout/MainLayout';
 
 import HomePage from '../pages/HomePage';
+import CartPage from '../pages/CartPage';
 import ProductsPage from '../pages/ProductsPage';
 import LoginPage from '../pages/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
@@ -38,6 +39,10 @@ const router = createBrowserRouter([
                         element: <div>Trang quản trị - Chỉ dành cho Admin</div>,
                     },
                 ],
+            },
+            {
+                path: '/cart',
+                element: <CartPage />,
             },
             {
                 path: '*',

@@ -23,7 +23,7 @@ function Header() {
                     <Link to="/login" className="btn-login">
                         Đăng nhập
                     </Link>
-                    <Link to="/login" className="btn-register">
+                    <Link to="/cart" className="btn-register">
                         Đăng ký
                     </Link>
                 </div>
