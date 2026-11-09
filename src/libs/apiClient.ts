@@ -31,6 +31,10 @@ interface RequestOptions {
     query?: Record<string, QueryValue>
 }
 
+function isFormData(body: unknown): body is FormData {
+    return typeof FormData !== 'undefined' && body instanceof FormData
+}
+
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
     const search = new URLSearchParams()
     if (query) {
@@ -73,12 +77,12 @@ function handleUnauthorized(status: number, auth: boolean): void {
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const { method = 'GET', body, auth = true, query } = options
     const headers: Record<string, string> = { Accept: 'application/json', ...authHeader(auth) }
-    if (body !== undefined) headers['Content-Type'] = 'application/json'
+    if (body !== undefined && !isFormData(body)) headers['Content-Type'] = 'application/json'
 
     const res = await fetch(buildUrl(path, query), {
         method,
         headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: body === undefined ? undefined : isFormData(body) ? body : JSON.stringify(body),
     })
     const payload = await readPayload(res)
 
