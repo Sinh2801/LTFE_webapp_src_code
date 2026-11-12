@@ -9,6 +9,7 @@ import ProductsPage from '../pages/ProductsPage';
 import LoginPage from '../pages/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import CheckoutPage from '../pages/checkout/CheckoutPage.tsx'
+import RegisterPage from "../pages/RegisterPage.tsx";
 
 const router = createBrowserRouter([
     {
@@ -46,8 +47,12 @@ const router = createBrowserRouter([
         ],
     },
     {
-        path: '/login',
-        element: <LoginPage />,
+                    path: '/login',
+                    element: <LoginPage />,
+    },
+    {
+                    path: '/register',
+                    element: <RegisterPage />
     },
 ]);
 
