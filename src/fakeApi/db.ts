@@ -3,7 +3,15 @@ import type { Category, Product } from '../libs/types'
 import { SEED_CATEGORIES, SEED_PRODUCTS, SEED_USERS, type SeedUser } from './seed'
 
 const DB_KEY = 'fakeDb'
-const DB_VERSION = 2
+// v3 hash mật khẩu. Dữ liệu v1/v2 (mk thường).
+const DB_VERSION = 3
+
+export interface FakeProduct extends Product {
+    previewFileId?: string
+    sourceFileId?: string
+    sourceFileName?: string
+    sourceFileSize?: number
+}
 
 export interface FakeDb {
     version: number
@@ -14,21 +22,14 @@ export interface FakeDb {
     categories: Category[]
 }
 
-export interface FakeProduct extends Product {
-    previewFileId?: string
-    sourceFileId?: string
-    sourceFileName?: string
-    sourceFileSize?: number
-}
-
 function seedDb(): FakeDb {
     return {
         version: DB_VERSION,
         seq: 100,
         users: SEED_USERS.map((u) => ({ ...u })),
         sessions: {},
-        products: SEED_PRODUCTS.map((product) => ({ ...product })),
-        categories: SEED_CATEGORIES.map((category) => ({ ...category })),
+        products: SEED_PRODUCTS.map((p: Product) => ({ ...p })),
+        categories: SEED_CATEGORIES.map((c: Category) => ({ ...c })),
     }
 }
 
@@ -42,41 +43,25 @@ export function saveDb(db: FakeDb): void {
 
 export function loadDb(): FakeDb {
     let db: FakeDb | null = null
-    let needsSave = false
     try {
         const raw = localStorage.getItem(DB_KEY)
         if (raw) {
             const parsed = JSON.parse(raw) as Partial<FakeDb>
-            if (parsed.version === 1 || parsed.version === DB_VERSION) {
+            if (parsed.version === DB_VERSION) {
                 db = {
                     version: DB_VERSION,
                     seq: typeof parsed.seq === 'number' ? parsed.seq : 100,
-                    users: Array.isArray(parsed.users) ? parsed.users : SEED_USERS.map((u) => ({ ...u })),
+                    users: Array.isArray(parsed.users) ? parsed.users : [],
                     sessions: parsed.sessions && typeof parsed.sessions === 'object' ? parsed.sessions : {},
-                    products: Array.isArray(parsed.products)
-                        ? parsed.products
-                        : SEED_PRODUCTS.map((product) => ({ ...product })),
+                    products: Array.isArray(parsed.products) ? parsed.products : SEED_PRODUCTS.map((p: Product) => ({ ...p })),
                     categories: Array.isArray(parsed.categories)
                         ? parsed.categories
-                        : SEED_CATEGORIES.map((category) => ({ ...category })),
+                        : SEED_CATEGORIES.map((c: Category) => ({ ...c })),
                 }
-                const existingEmails = new Set(db.users.map((user) => user.email.toLowerCase()))
-                const missingSeedUsers = SEED_USERS.filter((user) => !existingEmails.has(user.email.toLowerCase()))
-                if (missingSeedUsers.length > 0) {
-                    db.users.push(...missingSeedUsers.map((user) => ({ ...user })))
-                    needsSave = true
+                const existing = new Set(db.users.map((u) => u.email.toLowerCase()))
+                for (const seedUser of SEED_USERS) {
+                    if (!existing.has(seedUser.email.toLowerCase())) db.users.push({ ...seedUser })
                 }
-                for (const user of db.users) {
-                    const seedUser = SEED_USERS.find((seed) => seed.email.toLowerCase() === user.email.toLowerCase())
-                    if (!user.role && seedUser?.role) {
-                        user.role = seedUser.role
-                        needsSave = true
-                    }
-                }
-                needsSave = needsSave
-                    || parsed.version !== DB_VERSION
-                    || !Array.isArray(parsed.products)
-                    || !Array.isArray(parsed.categories)
             }
         }
     } catch {
@@ -84,9 +69,8 @@ export function loadDb(): FakeDb {
     }
     if (!db) {
         db = seedDb()
-        needsSave = true
+        saveDb(db)
     }
-    if (needsSave) saveDb(db)
     return db
 }
 

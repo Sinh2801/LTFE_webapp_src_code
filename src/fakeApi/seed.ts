@@ -1,12 +1,14 @@
 //tkdemo: demo@sourcecode.vn / 12345678
+//tknguoiban: seller@sourcecode.vn
 import type { Category, Product, UserRole } from '../libs/types'
 
 export interface SeedUser {
     id: string
     fullName: string
     email: string
-    password: string
-    role?: UserRole
+    passwordSalt: string
+    passwordHash: string
+    role: UserRole
     createdAt: string
 }
 
@@ -15,24 +17,18 @@ export const SEED_USERS: SeedUser[] = [
         id: 'u-demo',
         fullName: 'Người dùng demo',
         email: 'demo@sourcecode.vn',
-        password: '12345678',
-        role: 'user',
+        passwordSalt: 'seed-demo-buyer',
+        passwordHash: '1fdafba7cf105bb30e63ffb31ce4c2845cec782587860090cc0b11c766c5d9d4',
+        role: 'buyer',
         createdAt: '2026-10-15T08:00:00.000Z',
     },
     {
         id: 'u-seller-demo',
         fullName: 'Người bán demo',
         email: 'seller@sourcecode.vn',
-        password: '12345678',
+        passwordSalt: 'seed-demo-seller',
+        passwordHash: '82c613d71f2ea89a4e03e0d86ee7146456eeccbd8dda8e195499d21798c785e5',
         role: 'seller',
-        createdAt: '2026-10-15T08:00:00.000Z',
-    },
-    {
-        id: 'u-admin-demo',
-        fullName: 'Quản trị demo',
-        email: 'admin@sourcecode.vn',
-        password: '12345678',
-        role: 'admin',
         createdAt: '2026-10-15T08:00:00.000Z',
     },
 ]
@@ -65,6 +61,8 @@ export const SEED_PRODUCTS: Product[] = [
     {
         id: 'product-shop-demo',
         code: 'SRC-SHOP-001',
+        features: ['Giao diện hiện đại', 'Mã nguồn tốt, dễ phát triển'],
+        usage: 'Giải nén file ZIP, cài thư viện (npm install), sau đó chạy npm run dev.',
         title: 'Website bán hàng React',
         description: 'Giao diện cửa hàng trực tuyến responsive.',
         price: 1200000,
@@ -83,6 +81,8 @@ export const SEED_PRODUCTS: Product[] = [
     {
         id: 'product-dashboard-demo',
         code: 'SRC-DASH-001',
+        features: ['Giao diện hiện đại', 'Mã nguồn tốt, dễ phát triển'],
+        usage: 'Giải nén file ZIP, cài thư viện (npm install), sau đó chạy npm run dev.',
         title: 'Dashboard quản lý dữ liệu',
         description: 'Bộ giao diện dashboard với các màn hình thống kê.',
         price: 850000,
@@ -100,6 +100,8 @@ export const SEED_PRODUCTS: Product[] = [
     {
         id: 'product-landing-demo',
         code: 'SRC-LANDING-001',
+        features: ['Giao diện hiện đại', 'Mã nguồn tốt, dễ phát triển'],
+        usage: 'Giải nén file ZIP, cài thư viện (npm install), sau đó chạy npm run dev.',
         title: 'Landing page giới thiệu dịch vụ',
         description: 'Mẫu landing page gọn nhẹ, dễ tùy chỉnh.',
         price: 450000,
