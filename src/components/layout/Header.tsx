@@ -17,6 +17,7 @@ function Header() {
                 <nav className="main-nav">
                     <Link to="/">Trang chủ</Link>
                     <Link to="/products">Sản phẩm</Link>
+                    <Link to="/orders">Đơn hàng</Link>
                 </nav>
 
                 <div className="header-actions">
