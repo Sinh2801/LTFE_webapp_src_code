@@ -1,7 +1,7 @@
 // Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
-import type { UserRole } from '../libs/types'
-import { loadDb, nextId, saveDb, type FakeDb } from './db'
+import type { PaginatedResult, Product, UserRole } from '../libs/types'
+import { loadDb, nextId, saveDb, type FakeDb, type FakeProduct } from './db'
 import type { SeedUser } from './seed'
 import { normalizeEmail, normalizeFullName, validateEmail, validateFullName, validatePassword } from '../libs/validation'
 
@@ -90,6 +90,129 @@ interface PublicUser {
 function publicUser(user: SeedUser): PublicUser {
     return { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt }
 }
+
+function normalizeText(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .toLowerCase()
+        .trim()
+}
+
+function publicProduct(product: FakeProduct): Product {
+    const result = { ...product }
+    delete result.previewFileId
+    delete result.sourceFileId
+    delete result.sourceFileName
+    delete result.sourceFileSize
+    return result
+}
+
+function queryNumber(query: URLSearchParams, key: string, fallback: number): number {
+    const raw = query.get(key)
+    if (raw === null || raw.trim() === '') return fallback
+    const value = Number(raw)
+    if (!Number.isInteger(value) || value < 1) {
+        throw new HttpError(422, `Tham số ${key} không hợp lệ`)
+    }
+    return value
+}
+
+function optionalPrice(query: URLSearchParams, key: string): number | undefined {
+    const raw = query.get(key)
+    if (raw === null || raw.trim() === '') return undefined
+    const value = Number(raw)
+    if (!Number.isFinite(value) || value < 0) {
+        throw new HttpError(422, 'Khoảng giá không hợp lệ')
+    }
+    return value
+}
+
+function productPrice(product: Product): number {
+    return product.salePrice ?? product.price
+}
+
+add('GET', '/categories', async () => {
+    const db = loadDb()
+    return success(db.categories.map((category) => ({ ...category })))
+})
+
+add('GET', '/products', async ({ query }) => {
+    const db = loadDb()
+    const page = queryNumber(query, 'page', 1)
+    const limit = Math.min(queryNumber(query, 'limit', 9), 100)
+    const keyword = normalizeText(query.get('q') ?? '')
+    const categoryValue = query.get('category')
+    const categoryText = categoryValue ? normalizeText(categoryValue) : ''
+    const category = categoryValue
+        ? db.categories.find((item) => [item.id, item.slug, item.name].some((value) => normalizeText(value) === categoryText))
+        : undefined
+    const tech = normalizeText(query.get('tech') ?? '')
+    const minPrice = optionalPrice(query, 'minPrice')
+    const maxPrice = optionalPrice(query, 'maxPrice')
+    const featuredValue = query.get('featured')
+    if (featuredValue !== null && featuredValue !== 'true' && featuredValue !== 'false') {
+        throw new HttpError(422, 'Tham số featured không hợp lệ')
+    }
+    const sort = query.get('sort') ?? 'newest'
+    const validSorts = ['newest', 'popular', 'best-selling', 'rating', 'price_asc', 'price_desc', 'price-asc', 'price-desc', 'name_asc']
+    if (!validSorts.includes(sort)) throw new HttpError(422, 'Cách sắp xếp không hợp lệ')
+
+    let products = db.products.filter((product) => product.status === 'approved')
+    if (keyword) {
+        products = products.filter((product) => {
+            const content = [product.title, product.description, product.code, product.category, ...product.features, ...product.technologies]
+                .map(normalizeText)
+                .join(' ')
+            return content.includes(keyword)
+        })
+    }
+    if (categoryValue) {
+        products = products.filter((product) => category
+            ? product.categoryId === category.id || normalizeText(product.category) === normalizeText(category.name)
+            : normalizeText(product.categoryId ?? '') === categoryText || normalizeText(product.category) === categoryText)
+    }
+    if (tech) {
+        products = products.filter((product) => product.technologies.some((item) => normalizeText(item).includes(tech)))
+    }
+    if (minPrice !== undefined) products = products.filter((product) => productPrice(product) >= minPrice)
+    if (maxPrice !== undefined) products = products.filter((product) => productPrice(product) <= maxPrice)
+    if (featuredValue !== null) {
+        const featured = featuredValue === 'true'
+        products = products.filter((product) => Boolean(product.featured) === featured)
+    }
+
+    const comparators: Record<string, (a: Product, b: Product) => number> = {
+        newest: (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+        popular: (a, b) => b.downloads - a.downloads,
+        'best-selling': (a, b) => b.downloads - a.downloads,
+        rating: (a, b) => (b.rating ?? 0) - (a.rating ?? 0),
+        price_asc: (a, b) => productPrice(a) - productPrice(b),
+        'price-asc': (a, b) => productPrice(a) - productPrice(b),
+        price_desc: (a, b) => productPrice(b) - productPrice(a),
+        'price-desc': (a, b) => productPrice(b) - productPrice(a),
+        name_asc: (a, b) => normalizeText(a.title).localeCompare(normalizeText(b.title)),
+    }
+    products.sort(comparators[sort])
+
+    const total = products.length
+    const result: PaginatedResult<Product> = {
+        items: products.slice((page - 1) * limit, page * limit).map(publicProduct),
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+    }
+    return success(result)
+})
+
+add('GET', '/products/:id', async ({ params }) => {
+    const db = loadDb()
+    const product = db.products.find((item) => item.id === params.id && item.status === 'approved')
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    return success(publicProduct(product))
+})
 
 function bodyObject(body: unknown): Record<string, unknown> {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
