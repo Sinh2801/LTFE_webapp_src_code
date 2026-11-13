@@ -1,0 +1,65 @@
+:root {
+    color-scheme: light;
+    font-family: Inter, 'Segoe UI', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text-main);
+    background: var(--surface-muted);
+
+    --brand-dark: #02070a;
+    --brand-blue: #09318d;
+    --brand-blue-dark: #06256b;
+    --brand-blue-soft: #eef3ff;
+    --brand-blue-border: #cbd8f5;
+    --brand-coral: #fc734d;
+    --brand-coral-hover: #e95f3b;
+    --brand-coral-soft: #fff0eb;
+    --success: #15803d;
+    --danger: #dc2626;
+    --text-main: #172033;
+    --text-muted: #64748b;
+    --surface: #fff;
+    --surface-muted: #f7f8fc;
+    --input-bg: #f3f5f9;
+    --border-color: #e0e5ee;
+    --card-shadow: 0 8px 24px rgb(2 7 10 / 7%);
+    --radius-small: 8px;
+    --radius-medium: 12px;
+    --radius-large: 18px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-width: 320px;
+    scroll-behavior: smooth;
+}
+
+body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    background: var(--surface-muted);
+    color: var(--text-main);
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+img {
+    max-width: 100%;
+}
+
+#root {
+    min-height: 100vh;
+}
