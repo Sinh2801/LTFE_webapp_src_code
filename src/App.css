@@ -902,8 +902,8 @@
     border-radius: 20px;
     background-color: #02070a;
     background-image:
-        linear-gradient(90deg, rgb(5 24 69 / 38%) 0%, rgb(5 24 69 / 20%) 42%, rgb(5 24 69 / 0%) 100%),
-        url('/images/home-hero.jpg');
+    linear-gradient(90deg, rgb(5 24 69 / 38%) 0%, rgb(5 24 69 / 20%) 42%, rgb(5 24 69 / 0%) 100%),
+    linear-gradient(120deg,#6d28d9,#2563eb);
     background-position: center, center 46%;
     background-size: cover;
 }
@@ -1202,7 +1202,7 @@
     padding: 34px 40px;
     border-radius: 16px;
     background-color: var(--brand-dark);
-    background-image: url('/images/seller-banner.jpg');
+    background-image: linear-gradient(120deg,#1e1b4b,#1d4ed8);
     background-position: center;
     background-size: cover;
     color: #fff;
@@ -1227,7 +1227,7 @@
     .home-hero {
         min-height: 0;
         padding: 30px 24px;
-        background-image: linear-gradient(180deg, rgb(5 24 69 / 38%), rgb(5 24 69 / 12%)), url('/images/home-hero.jpg');
+        background-image: linear-gradient(180deg, rgb(5 24 69 / 38%), rgb(5 24 69 / 12%)), linear-gradient(120deg,#6d28d9,#2563eb);
         background-position: center, center;
     }
     .home-hero__content { max-width: 100%; }

@@ -1,49 +1,31 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../app/hook'
 import { clearAuthError, registerUser } from '../app/slices/authSlice'
 import { authService } from '../libs/services'
-import {
-    normalizeEmail,
-    normalizeFullName,
-    passwordResults,
-    validateEmail,
-    validateFullName,
-    validatePassword,
-} from '../libs/validation'
+import { normalizeEmail, normalizeFullName, passwordResults, validateEmail, validateFullName, validatePassword } from '../libs/validation'
 
-type EmailStatus = 'idle' | 'checking' | 'available' | 'taken' | 'error'
-type Field = 'fullName' | 'email' | 'password' | 'confirm'
-
-const EMAIL_CHECK_DELAY_MS = 400
+type EmailState = 'idle' | 'checking' | 'ok' | 'taken' | 'error'
 
 function RegisterPage() {
     const dispatch = useAppDispatch()
     const navigate = useNavigate()
+    const [params] = useSearchParams()
     const { user, status, error } = useAppSelector((state) => state.auth)
-
+    const [role, setRole] = useState<'buyer' | 'seller'>(params.get('role') === 'seller' ? 'seller' : 'buyer')
     const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [confirm, setConfirm] = useState('')
-    const [touched, setTouched] = useState<Record<Field, boolean>>({
-        fullName: false,
-        email: false,
-        password: false,
-        confirm: false,
-    })
     const [submitted, setSubmitted] = useState(false)
-    const [emailStatus, setEmailStatus] = useState<EmailStatus>('idle')
+    const [emailState, setEmailState] = useState<EmailState>('idle')
 
-    const fullNameError = validateFullName(fullName)
+    const nameError = validateFullName(fullName)
     const emailError = validateEmail(email)
-    const passwordError = validatePassword(password)
-    const confirmError = confirm.length === 0
-        ? 'Vui lòng nhập lại mật khẩu'
-        : confirm !== password
-            ? 'Mật khẩu nhập lại không khớp'
-            : null
+    const passError = validatePassword(password)
+    const confirmError = !confirm ? 'Vui lòng nhập lại mật khẩu' : confirm !== password ? 'Mật khẩu nhập lại không khớp' : null
+    const canSubmit = !nameError && !emailError && emailState === 'ok' && !passError && !confirmError && status !== 'loading'
     const rules = passwordResults(password)
 
     useEffect(() => {
@@ -51,131 +33,79 @@ function RegisterPage() {
         dispatch(clearAuthError())
     }, [dispatch])
 
-    //ajax
     useEffect(() => {
-        if (emailError) {
-            setEmailStatus('idle')
-            return
-        }
-        setEmailStatus('checking')
+        if (emailError) { setEmailState('idle'); return }
+        setEmailState('checking')
         let cancelled = false
         const timer = window.setTimeout(async () => {
             try {
                 const data = await authService.checkEmail(normalizeEmail(email))
-                if (!cancelled) setEmailStatus(data.available ? 'available' : 'taken')
+                if (!cancelled) setEmailState(data.available ? 'ok' : 'taken')
             } catch {
-                if (!cancelled) setEmailStatus('error')
+                if (!cancelled) setEmailState('error')
             }
-        }, EMAIL_CHECK_DELAY_MS)
-        return () => {
-            cancelled = true
-            window.clearTimeout(timer)
-        }
+        }, 400)
+        return () => { cancelled = true; window.clearTimeout(timer) }
     }, [email, emailError])
 
-    if (user) return <Navigate to="/" replace />
+    if (user) return <Navigate to={user.role === 'seller' ? '/seller' : '/'} replace />
 
-    const canSubmit =
-        !fullNameError && !emailError && emailStatus === 'available' && !passwordError && !confirmError && status !== 'loading'
-
-    const touch = (field: Field) => setTouched((t) => ({ ...t, [field]: true }))
-    const showError = (field: Field, message: string | null) => (touched[field] || submitted) && message
-
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    const submit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         setSubmitted(true)
         if (!canSubmit) return
-        const result = await dispatch(
-            registerUser({
-                fullName: normalizeFullName(fullName),
-                email: normalizeEmail(email),
-                password,
-            }),
-        )
-        if (registerUser.fulfilled.match(result)) navigate('/', { replace: true })
+        const result = await dispatch(registerUser({ fullName: normalizeFullName(fullName), email: normalizeEmail(email), password, role }))
+        if (registerUser.fulfilled.match(result)) navigate(role === 'seller' ? '/seller' : '/', { replace: true })
     }
+
+    const show = (msg: string | null) => (submitted && msg ? msg : null)
 
     return (
         <div className="auth-page">
-            <form className="auth-card" onSubmit={handleSubmit} noValidate>
-                <h1>Tạo tài khoản</h1>
+            <aside className="auth-aside">
+                <h2>{role === 'seller' ? 'Bắt đầu bán mã nguồn' : 'Tạo tài khoản mua hàng'}</h2>
+                <p>{role === 'seller'
+                    ? 'Đăng sản phẩm trong vài phút, theo dõi doanh thu và đánh giá trong kênh người bán.'
+                    : 'Mua mã nguồn chất lượng, tải về bất cứ lúc nào và xem lại lịch sử đơn hàng.'}</p>
+                <div className="auth-switch" role="radiogroup" aria-label="Vai trò">
+                    <button type="button" role="radio" aria-checked={role === 'buyer'} className={role === 'buyer' ? 'is-on' : ''} onClick={() => setRole('buyer')}>Người Mua</button>
+                    <button type="button" role="radio" aria-checked={role === 'seller'} className={role === 'seller' ? 'is-on' : ''} onClick={() => setRole('seller')}> Người Bán</button>
+                </div>
+            </aside>
 
-                <label>
-                    Họ và tên
-                    <input
-                        type="text"
-                        value={fullName}
-                        maxLength={60}
-                        autoComplete="name"
-                        onChange={(e) => setFullName(e.target.value)}
-                        onBlur={() => touch('fullName')}
-                    />
-                    {showError('fullName', fullNameError) && <span className="error-text">{fullNameError}</span>}
+            <form className="auth-card" onSubmit={submit} noValidate>
+                <h1>Đăng ký</h1>
+                <label className="auth-field">
+                    <span>Họ và tên</span>
+                    <input type="text" value={fullName} maxLength={60} autoComplete="name" onChange={(e) => setFullName(e.target.value)} />
+                    {show(nameError) && <span className="error-text">{nameError}</span>}
                 </label>
-
-                <label>
-                    Email (tên tài khoản)
-                    <input
-                        type="email"
-                        value={email}
-                        maxLength={100}
-                        autoComplete="email"
-                        onChange={(e) => setEmail(e.target.value)}
-                        onBlur={() => touch('email')}
-                    />
-                    {showError('email', emailError) ? (
-                        <span className="error-text">{emailError}</span>
-                    ) : emailStatus === 'checking' ? (
-                        <span className="muted">Đang kiểm tra email...</span>
-                    ) : emailStatus === 'available' ? (
-                        <span className="rule-ok">✔ Email có thể sử dụng</span>
-                    ) : emailStatus === 'taken' ? (
-                        <span className="error-text">Email này đã được sử dụng</span>
-                    ) : emailStatus === 'error' ? (
-                        <span className="error-text">Không kiểm tra được email, thử lại sau</span>
-                    ) : null}
+                <label className="auth-field">
+                    <span>Email (tên tài khoản)</span>
+                    <input type="email" value={email} maxLength={100} autoComplete="email" onChange={(e) => setEmail(e.target.value)} />
+                    {show(emailError) ? <span className="error-text">{emailError}</span>
+                        : emailState === 'checking' ? <span className="muted">Đang kiểm tra email...</span>
+                            : emailState === 'ok' ? <span className="ok-text">✓ Email có thể sử dụng</span>
+                                : emailState === 'taken' ? <span className="error-text">Email này đã được sử dụng</span>
+                                    : emailState === 'error' ? <span className="error-text">Không kiểm tra được email</span> : null}
                 </label>
-
-                <label>
-                    Mật khẩu
-                    <input
-                        type="password"
-                        value={password}
-                        maxLength={64}
-                        autoComplete="new-password"
-                        onChange={(e) => setPassword(e.target.value)}
-                        onBlur={() => touch('password')}
-                    />
+                <label className="auth-field">
+                    <span>Mật khẩu</span>
+                    <input type="password" value={password} maxLength={64} autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
                 </label>
-                <ul className="rule-list" aria-label="Yêu cầu mật khẩu">
-                    {rules.map((rule) => (
-                        <li key={rule.id} className={rule.ok ? 'rule-ok' : password ? 'rule-bad' : 'muted'}>
-                            {rule.ok ? '✔' : password ? '✘' : '•'} {rule.label}
-                        </li>
-                    ))}
+                <ul className="auth-rules">
+                    {rules.map((r) => <li key={r.id} className={r.ok ? 'rule-ok' : password ? 'rule-bad' : ''}>{r.ok ? '✓' : password ? '✕' : '•'} {r.label}</li>)}
                 </ul>
-
-                <label>
-                    Nhập lại mật khẩu
-                    <input
-                        type="password"
-                        value={confirm}
-                        maxLength={64}
-                        autoComplete="new-password"
-                        onChange={(e) => setConfirm(e.target.value)}
-                        onBlur={() => touch('confirm')}
-                    />
-                    {showError('confirm', confirmError) && <span className="error-text">{confirmError}</span>}
+                <label className="auth-field">
+                    <span>Nhập lại mật khẩu</span>
+                    <input type="password" value={confirm} maxLength={64} autoComplete="new-password" onChange={(e) => setConfirm(e.target.value)} />
+                    {show(confirmError) && <span className="error-text">{confirmError}</span>}
                 </label>
-
-                {error && <p className="error-text" role="alert">{error}</p>}
-
-                <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit}>
-                    {status === 'loading' ? 'Đang tạo tài khoản...' : 'Đăng ký'}
+                {error && <p className="auth-alert" role="alert">{error}</p>}
+                <button type="submit" className="auth-submit" disabled={!canSubmit}>
+                    {status === 'loading' ? 'Đang tạo tài khoản...' : role === 'seller' ? 'Đăng ký làm người bán' : 'Đăng ký'}
                 </button>
-                <p className="muted">
-                    Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
-                </p>
+                <p className="auth-foot">Đã có tài khoản? <Link to="/login">Đăng nhập</Link></p>
             </form>
         </div>
     )

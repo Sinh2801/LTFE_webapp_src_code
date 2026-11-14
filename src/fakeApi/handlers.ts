@@ -1,5 +1,7 @@
 // Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
+import type {UserRole, Order, Product, PaginatedResult} from '../libs/types'
+import {loadDb, nextId, saveDb, type FakeDb, type FakeProduct, type StoredOrder} from './db'
 import type {UserRole, Order, Product, PaymentMethod, PaginatedResult} from '../libs/types'
 import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder, type FakeProduct} from './db'
 import type { SeedUser } from './seed'
@@ -317,6 +319,15 @@ add('POST', '/auth/logout', async ({ token }) => {
 })
 
 //profile
+
+add('POST', '/users/me/become-seller', async ({ token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    if (user.role === 'seller') throw new HttpError(409, 'Bạn đã là người bán')
+    user.role = 'seller'
+    saveDb(db)
+    return success(publicUser(user), 200, ' Chào mừng, Bạn đã trở thành người bán')
+})
 
 add('PUT', '/users/me', async ({ token, body }) => {
     const db = loadDb()
