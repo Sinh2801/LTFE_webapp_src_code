@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { clearToken } from '../libs/tokenStorage'
 import authReducer, { logout } from './slices/authSlice'
 import cartReducer, { saveCart } from './slices/cartSlice'
+import categoryReducer from './slices/categorySlice'
 import libraryReducer from './slices/librarySlice'
 import orderReducer from './slices/orderSlice'
 import productReducer from './slices/productSlice'
@@ -10,6 +11,7 @@ export const store = configureStore({
     reducer: {
         auth: authReducer,
         cart: cartReducer,
+        categories: categoryReducer,
         products: productReducer,
         orders: orderReducer,
         library: libraryReducer,
