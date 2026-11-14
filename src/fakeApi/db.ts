@@ -59,9 +59,28 @@ export function loadDb(): FakeDb {
                         : SEED_CATEGORIES.map((c: Category) => ({ ...c })),
                 }
                 const existing = new Set(db.users.map((u) => u.email.toLowerCase()))
+                let changed = false
                 for (const seedUser of SEED_USERS) {
-                    if (!existing.has(seedUser.email.toLowerCase())) db.users.push({ ...seedUser })
+                    if (!existing.has(seedUser.email.toLowerCase())) {
+                        db.users.push({ ...seedUser })
+                        changed = true
+                    }
                 }
+                const categoryIds = new Set(db.categories.map((category) => category.id))
+                for (const category of SEED_CATEGORIES) {
+                    if (!categoryIds.has(category.id)) {
+                        db.categories.push({ ...category })
+                        changed = true
+                    }
+                }
+                const productIds = new Set(db.products.map((product) => product.id))
+                for (const product of SEED_PRODUCTS) {
+                    if (!productIds.has(product.id)) {
+                        db.products.push({ ...product })
+                        changed = true
+                    }
+                }
+                if (changed) saveDb(db)
             }
         }
     } catch {
