@@ -14,6 +14,15 @@
     --brand-coral: #fc734d;
     --brand-coral-hover: #e95f3b;
     --brand-coral-soft: #fff0eb;
+
+    --primary: var(--brand-blue);
+    --primary-dark: var(--brand-blue-dark);
+    --navy: var(--brand-blue);
+    --text: var(--text-main);
+    --muted: var(--text-muted);
+    --border: var(--border-color);
+    --bg: var(--surface-muted);
+
     --success: #15803d;
     --danger: #dc2626;
     --text-main: #172033;
