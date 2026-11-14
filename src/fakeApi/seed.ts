@@ -1,6 +1,6 @@
 //tkdemo: demo@sourcecode.vn / 12345678
 //tknguoiban: seller@sourcecode.vn
-import type { Category, Product, UserRole } from '../libs/types'
+import type {Category, Order, Product, UserRole} from '../libs/types'
 
 function makeThumbnail(label: string, color: string): string {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400"><rect width="640" height="400" fill="${color}"/><rect x="48" y="48" width="544" height="304" rx="24" fill="#ffffff" opacity=".72"/><text x="320" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#123c70">${label}</text></svg>`
@@ -37,6 +37,8 @@ export const SEED_USERS: SeedUser[] = [
         createdAt: '2026-10-15T08:00:00.000Z',
     },
 ]
+
+export const SEED_ORDERS: Order[] = []
 
 export const SEED_CATEGORIES: Category[] = [
     {

@@ -1,8 +1,10 @@
 // Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
-import type { PaginatedResult, Product, UserRole } from '../libs/types'
-import { loadDb, nextId, saveDb, type FakeDb, type FakeProduct } from './db'
+import type {UserRole, Order, Product} from '../libs/types'
+import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder} from './db'
 import type { SeedUser } from './seed'
+import { formatPrice, effectivePrice } from '../libs/format'
+import {SEED_PRODUCTS} from "./seed";
 import { normalizeEmail, normalizeFullName, validateEmail, validateFullName, validatePassword } from '../libs/validation'
 
 const LATENCY_MS = 300
@@ -341,6 +343,71 @@ add('PUT', '/users/me/password', async ({ token, body }) => {
     return success(null, 200, 'Password updated')
 })
 
+// order
+add('POST', '/orders', async ({ token, body }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    const input = bodyObject(body)
+    const ids = Array.isArray(input.productIds) ? input.productIds.filter((id): id is string => typeof id === 'string') : []
+    if (ids.length === 0) throw new HttpError(400, 'Giỏ hàng đang trống')
+    if (new Set(ids).size !== ids.length) throw new HttpError(422, 'Danh sách sản phẩm có trùng lặp')
+
+    // Giá lấy từ danh mục phía server, không tin giá do client gửi lên
+    const items = ids.map((id) => {
+        const product = findProduct(id)
+        if (hasPurchased(db, user.id, id)) {
+            throw new HttpError(409, `Bạn đã sở hữu "${product.title}"`)
+        }
+        return {
+            productId: product.id,
+            title: product.title,
+            price: effectivePrice(product),
+            thumbnail: product.thumbnail,
+        }
+    })
+    const total = items.reduce((sum, item) => sum + item.price, 0)
+
+    const order: StoredOrder = {
+        id: nextId(db, 'o'),
+        userId: user.id,
+        items,
+        total,
+        status: 'pending',
+        paymentMethod: null,
+        createdAt: new Date().toISOString(),
+        paidAt: null,
+        payOutcome: null,
+        payResolveAt: null,
+    }
+    db.orders.push(order)
+    saveDb(db)
+    return success(toPublicOrder(order), 201, `Đơn hàng có tổng ${formatPrice(total)}`)
+})
+
+export function toPublicOrder(order: StoredOrder): Order {
+    return {
+        id: order.id,
+        userId: order.userId,
+        items: order.items,
+        total: order.total,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        createdAt: order.createdAt,
+        paidAt: order.paidAt,
+    }
+}
+
+function hasPurchased(db: FakeDb, userId: string, productId: string): boolean {
+    return db.orders.some(
+        (o) => o.userId === userId && o.status === 'paid' && o.items.some((i) => i.productId === productId),
+    )
+}
+
+function findProduct(id: string): Product {
+    const product = SEED_PRODUCTS.find((p) => p.id === id && p.status === 'approved')
+    if (!product) throw new HttpError(404, 'Sản phẩm không tồn tại')
+    return product
+}
 
 export async function handleFakeRequest(url: URL, init?: RequestInit): Promise<Response> {
     const method = (init?.method ?? 'GET').toUpperCase()
