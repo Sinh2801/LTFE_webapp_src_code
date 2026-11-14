@@ -48,7 +48,7 @@ export const loginUser = createAsyncThunk<
 
 export const registerUser = createAsyncThunk<
     { user: User; token: string },
-    { fullName: string; email: string; password: string },
+    { fullName: string; email: string; password: string; role?: 'buyer' | 'seller' },
     { rejectValue: string }
 >('auth/register', async (body, { rejectWithValue }) => {
     try {

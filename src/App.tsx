@@ -1,18 +1,23 @@
+import { useEffect } from 'react'
 import { RouterProvider } from 'react-router-dom'
-import { AuthProvider } from './components/contexts/AuthContext'
+import { useAppDispatch } from './app/hook'
+import { restoreSession } from './app/slices/authSlice'
 import { ToastProvider } from './components/common/Toast'
 import router from './app/router'
-import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css'
+import './styles/auth.css'
 
 function App() {
-  return (
-      <AuthProvider>
+    const dispatch = useAppDispatch()
+    useEffect(() => {
+        dispatch(restoreSession())
+    }, [dispatch])
+
+    return (
         <ToastProvider>
-          <RouterProvider router={router} />
+            <RouterProvider router={router} />
         </ToastProvider>
-      </AuthProvider>
-  )
+    )
 }
 
 export default App

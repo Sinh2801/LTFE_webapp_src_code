@@ -10,6 +10,7 @@ import LoginPage from '../pages/LoginPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import CheckoutPage from '../pages/checkout/CheckoutPage.tsx'
 import RegisterPage from "../pages/RegisterPage.tsx";
+import ProfilePage from '../pages/ProfilePage';
 
 const router = createBrowserRouter([
     {
@@ -28,7 +29,7 @@ const router = createBrowserRouter([
                 children: [
                     {
                         path: '/profile',
-                        element: <div>Trang cá nhân - Yêu cầu đăng nhập</div>,
+                        element: <ProfilePage />,
                     },
                 ],
             },
@@ -47,12 +48,12 @@ const router = createBrowserRouter([
         ],
     },
     {
-                    path: '/login',
-                    element: <LoginPage />,
+        path: '/login',
+        element: <LoginPage />,
     },
     {
-                    path: '/register',
-                    element: <RegisterPage />
+        path: '/register',
+        element: <RegisterPage />
     },
 ]);
 

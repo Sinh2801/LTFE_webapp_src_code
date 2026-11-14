@@ -5,8 +5,11 @@ import { useAppDispatch, useAppSelector } from '../app/hook'
 import { clearAuthError, loginUser } from '../app/slices/authSlice'
 import { normalizeEmail, validateEmail, validateLoginPassword } from '../libs/validation'
 
-const DEMO_EMAIL = 'demo@sourcecode.vn'
-const DEMO_PASSWORD = 'Demo@1234'
+const DEMOS = [
+    { label: 'Người mua', email: 'demo@sourcecode.vn' },
+    { label: 'Người bán', email: 'seller@sourcecode.vn' },
+]
+const DEMO_PASSWORD = '12345678'
 
 function LoginPage() {
     const dispatch = useAppDispatch()
@@ -15,77 +18,69 @@ function LoginPage() {
     const { user, status, error } = useAppSelector((state) => state.auth)
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-    const [touched, setTouched] = useState({ email: false, password: false })
+    const [touched, setTouched] = useState(false)
 
-    const from = (location.state as { from?: string } | null)?.from ?? '/'
+    const from = (location.state as { from?: string } | null)?.from
     const emailError = validateEmail(email)
-    const passwordError = validateLoginPassword(password)
-    const canSubmit = !emailError && !passwordError && status !== 'loading'
+    const canSubmit = !emailError && !validateLoginPassword(password) && status !== 'loading'
 
     useEffect(() => {
         document.title = 'Đăng nhập | SourceCodeTST'
         dispatch(clearAuthError())
     }, [dispatch])
 
-    if (user) return <Navigate to={from} replace />
+    if (user) return <Navigate to={from ?? (user.role === 'seller' ? '/seller' : '/')} replace />
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    const submit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        setTouched({ email: true, password: true })
+        setTouched(true)
         if (!canSubmit) return
         const result = await dispatch(loginUser({ email: normalizeEmail(email), password }))
-        if (loginUser.fulfilled.match(result)) navigate(from, { replace: true })
+        if (loginUser.fulfilled.match(result)) {
+            navigate(from ?? (result.payload.user.role === 'seller' ? '/seller' : '/'), { replace: true })
+        }
     }
 
     return (
         <div className="auth-page">
-            <form className="auth-card" onSubmit={handleSubmit} noValidate>
+            <aside className="auth-aside">
+                <h2>Chào mừng trở lại</h2>
+                <p>Đăng nhập để tải mã nguồn đã mua, theo dõi đơn hàng hoặc quản lý sản phẩm của bạn.</p>
+                <ul>
+                    <li>✓ Thư viện mã nguồn luôn sẵn sàng</li>
+                    <li>✓ Theo dõi doanh thu và đánh giá</li>
+                    <li>✓ Mật khẩu luôn được băm khi lưu</li>
+                </ul>
+            </aside>
+
+            <form className="auth-card" onSubmit={submit} noValidate>
+                <Link to="/" className="auth-back">
+                    <span className="auth-back__icon" aria-hidden="true">←</span>
+                    Quay lại trang chủ
+                </Link>
                 <h1>Đăng nhập</h1>
-
-                <label>
-                    Email (tên tài khoản)
-                    <input
-                        type="email"
-                        value={email}
-                        autoComplete="email"
-                        onChange={(e) => setEmail(e.target.value)}
-                        onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-                    />
-                    {touched.email && emailError && <span className="error-text">{emailError}</span>}
+                <label className="auth-field">
+                    <span>Email (tên tài khoản)</span>
+                    <input type="email" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} />
+                    {touched && emailError && <span className="error-text">{emailError}</span>}
                 </label>
-
-                <label>
-                    Mật khẩu
-                    <input
-                        type="password"
-                        value={password}
-                        autoComplete="current-password"
-                        onChange={(e) => setPassword(e.target.value)}
-                        onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-                    />
-                    {touched.password && passwordError && <span className="error-text">{passwordError}</span>}
+                <label className="auth-field">
+                    <span>Mật khẩu</span>
+                    <input type="password" value={password} autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} />
                 </label>
-
-                {error && <p className="error-text" role="alert">{error}</p>}
-
-                <button type="submit" className="btn btn-primary btn-block" disabled={!canSubmit}>
+                {error && <p className="auth-alert" role="alert">{error}</p>}
+                <button type="submit" className="auth-submit" disabled={!canSubmit}>
                     {status === 'loading' ? 'Đang đăng nhập...' : 'Đăng nhập'}
                 </button>
-
-                <button
-                    type="button"
-                    className="link-button"
-                    onClick={() => {
-                        setEmail(DEMO_EMAIL)
-                        setPassword(DEMO_PASSWORD)
-                    }}
-                >
-                    Điền tài khoản demo
-                </button>
-
-                <p className="muted">
-                    Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
-                </p>
+                <div className="auth-demo">
+                    <span>Tài khoản thử:</span>
+                    {DEMOS.map((d) => (
+                        <button key={d.email} type="button" onClick={() => { setEmail(d.email); setPassword(DEMO_PASSWORD); setTouched(false) }}>
+                            {d.label}
+                        </button>
+                    ))}
+                </div>
+                <p className="auth-foot">Chưa có tài khoản? <Link to="/register">Đăng ký miễn phí</Link></p>
             </form>
         </div>
     )

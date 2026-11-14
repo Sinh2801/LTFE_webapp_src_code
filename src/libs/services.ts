@@ -4,7 +4,7 @@ import type {
 } from './types'
 
 export const authService = {
-    register: (body: { fullName: string; email: string; password: string }) =>
+    register: (body: { fullName: string; email: string; password: string; role?: 'buyer' | 'seller' }) =>
         api.post<AuthResponse>('/auth/register', body, { auth: false }),
     login: (body: { email: string; password: string }) =>
         api.post<AuthResponse>('/auth/login', body, { auth: false }),
@@ -17,6 +17,7 @@ export const authService = {
 
 export const userService = {
     updateProfile: (body: { fullName: string }) => api.put<User>('/users/me', body),
+    becomeSeller: () => api.post<User>('/users/me/become-seller'),
     changePassword: (body: { currentPassword: string; newPassword: string }) =>
         api.put<null>('/users/me/password', body),
 }
