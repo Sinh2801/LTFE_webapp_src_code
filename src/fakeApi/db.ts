@@ -1,6 +1,6 @@
 // "csdl" giả lập lưu trong localStorage: người dùng và phiên đăng nhập.
-import type { Category, Product } from '../libs/types'
-import { SEED_CATEGORIES, SEED_PRODUCTS, SEED_USERS, type SeedUser } from './seed'
+import type { Category, Product, Order, OrderStatus, PaymentMethod } from '../libs/types'
+import { SEED_CATEGORIES, SEED_PRODUCTS, SEED_USERS, SEED_ORDERS ,type SeedUser } from './seed'
 
 const DB_KEY = 'fakeDb'
 // v3 hash mật khẩu. Dữ liệu v1/v2 (mk thường).
@@ -13,12 +13,26 @@ export interface FakeProduct extends Product {
     sourceFileSize?: number
 }
 
+export interface StoredOrder {
+    id: string
+    userId: string
+    items: Order['items']
+    total: number
+    status: OrderStatus
+    paymentMethod: PaymentMethod | null
+    createdAt: string
+    paidAt: string | null
+    payOutcome: 'paid' | 'failed' | null
+    payResolveAt: number | null
+}
+
 export interface FakeDb {
     version: number
     seq: number
     users: SeedUser[]
     sessions: Record<string, string>
     products: FakeProduct[]
+    orders: StoredOrder[]
     categories: Category[]
 }
 
@@ -29,6 +43,7 @@ function seedDb(): FakeDb {
         users: SEED_USERS.map((u) => ({ ...u })),
         sessions: {},
         products: SEED_PRODUCTS.map((p: Product) => ({ ...p })),
+        orders: SEED_ORDERS.map((o) => ({ ...o, items: o.items.map((i) => ({ ...i })), payOutcome: null, payResolveAt: null })),
         categories: SEED_CATEGORIES.map((c: Category) => ({ ...c })),
     }
 }
@@ -52,11 +67,12 @@ export function loadDb(): FakeDb {
                     version: DB_VERSION,
                     seq: typeof parsed.seq === 'number' ? parsed.seq : 100,
                     users: Array.isArray(parsed.users) ? parsed.users : [],
+                    orders: Array.isArray(parsed.orders) ? parsed.orders : [],
                     sessions: parsed.sessions && typeof parsed.sessions === 'object' ? parsed.sessions : {},
                     products: Array.isArray(parsed.products) ? parsed.products : SEED_PRODUCTS.map((p: Product) => ({ ...p })),
                     categories: Array.isArray(parsed.categories)
                         ? parsed.categories
-                        : SEED_CATEGORIES.map((c: Category) => ({ ...c })),
+                        : SEED_CATEGORIES.map((c: Category) => ({ ...c }))
                 }
                 const existing = new Set(db.users.map((u) => u.email.toLowerCase()))
                 for (const seedUser of SEED_USERS) {

@@ -1,6 +1,6 @@
 //tkdemo: demo@sourcecode.vn / 12345678
 //tknguoiban: seller@sourcecode.vn
-import type { Category, Product, UserRole } from '../libs/types'
+import type {Category, Order, Product, UserRole} from '../libs/types'
 
 export interface SeedUser {
     id: string
@@ -32,6 +32,8 @@ export const SEED_USERS: SeedUser[] = [
         createdAt: '2026-10-15T08:00:00.000Z',
     },
 ]
+
+export const SEED_ORDERS: Order[] = []
 
 export const SEED_CATEGORIES: Category[] = [
     {
