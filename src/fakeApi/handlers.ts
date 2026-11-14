@@ -1,6 +1,6 @@
 // Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
-import type {UserRole, Order, Product} from '../libs/types'
+import type {UserRole, Order, Product, PaymentMethod} from '../libs/types'
 import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder} from './db'
 import type { SeedUser } from './seed'
 import { formatPrice, effectivePrice } from '../libs/format'
@@ -8,6 +8,7 @@ import {SEED_PRODUCTS} from "./seed";
 import { normalizeEmail, normalizeFullName, validateEmail, validateFullName, validatePassword } from '../libs/validation'
 
 const LATENCY_MS = 300
+export const PAY_DELAY_MS = 2500
 
 export class HttpError extends Error {
     status: number
@@ -220,6 +221,15 @@ add('PUT', '/users/me/password', async ({ token, body }) => {
     return success(null, 200, 'Password updated')
 })
 
+add('GET', '/orders/:id', async ({ params, token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    const order = db.orders.find((o) => o.id === params.id)
+    if (!order) throw new HttpError(404, 'Đơn hàng không tồn tại')
+    if (order.userId !== user.id) throw new HttpError(403, 'Bạn không có quyền xem đơn hàng này')
+    return success(toPublicOrder(order))
+})
+
 // order
 add('POST', '/orders', async ({ token, body }) => {
     const db = loadDb()
@@ -259,6 +269,32 @@ add('POST', '/orders', async ({ token, body }) => {
     db.orders.push(order)
     saveDb(db)
     return success(toPublicOrder(order), 201, `Đơn hàng có tổng ${formatPrice(total)}`)
+})
+
+add('POST', '/orders/:id/pay', async ({ params, token, body }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    const input = bodyObject(body)
+    const method = input.method
+    if (method !== 'card' && method !== 'wallet') {
+        throw new HttpError(400, 'Phương thức thanh toán không hợp lệ')
+    }
+    const order = db.orders.find((o) => o.id === params.id)
+    if (!order) throw new HttpError(404, 'Đơn hàng không tồn tại')
+    if (order.userId !== user.id) throw new HttpError(403, 'Bạn không có quyền thanh toán đơn hàng này')
+    if (order.status === 'paid') throw new HttpError(409, 'Đơn hàng đã được thanh toán')
+
+    const alreadyOwned = order.items.find((item) => hasPurchased(db, user.id, item.productId))
+    if (alreadyOwned) throw new HttpError(409, `Bạn đã sở hữu "${alreadyOwned.title}"`)
+
+    const paymentMethod: PaymentMethod = method
+    order.status = 'pending'
+    order.paymentMethod = paymentMethod
+    order.payOutcome = paymentMethod === 'wallet' ? 'failed' : 'paid'
+    order.payResolveAt = Date.now() + PAY_DELAY_MS
+    order.paidAt = null
+    saveDb(db)
+    return success(toPublicOrder(order), 202, 'Đang xử lý thanh toán')
 })
 
 export function toPublicOrder(order: StoredOrder): Order {
