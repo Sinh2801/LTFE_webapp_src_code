@@ -1,7 +1,7 @@
 // Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
-import type {UserRole, Order, Product, PaymentMethod} from '../libs/types'
-import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder} from './db'
+import type {UserRole, Order, Product, PaymentMethod, PaginatedResult} from '../libs/types'
+import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder, type FakeProduct} from './db'
 import type { SeedUser } from './seed'
 import { formatPrice, effectivePrice } from '../libs/format'
 import {SEED_PRODUCTS} from "./seed";
