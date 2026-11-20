@@ -12,7 +12,6 @@ export const setToken = (token: string): void => {
     try {
         localStorage.setItem(KEY, token)
     } catch {
-        // bỏ qua: trình duyệt chặn localStorage
     }
 }
 
@@ -20,6 +19,5 @@ export const clearToken = (): void => {
     try {
         localStorage.removeItem(KEY)
     } catch {
-        // bỏ qua
     }
 }

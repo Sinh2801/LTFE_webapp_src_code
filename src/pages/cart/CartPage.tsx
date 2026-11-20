@@ -6,7 +6,6 @@ import {useEffect} from "react";
 
 function CartPage() {
 
-    // Lấy dữ liệu giỏ hàng từ Redux Store
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const cartItems = useSelector((state: any) => state.cart.items);
@@ -39,7 +38,6 @@ function CartPage() {
                     <Link to="/products" className="btn btn-primary">Khám phá mã nguồn</Link>
                 </div>) : (
                     <div className="cart-layout">
-                    {/* Cột trái: Danh sách Source Code */}
                     <div className="cart-items">
                         {cartItems.map((item: any) => (
                             <CartItem key={item.id} item={item} />

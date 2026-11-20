@@ -33,8 +33,8 @@ export function CartItem({item}: CartItemProps) {
                         {item.title}
                     </Link>
                 </h3>
-                <div className="item-seller">
-                    Người bán: <span>{item.sellerName}</span>
+                <div className="item-provider">
+                    Cung cấp bởi <span>SourceCodeTST</span>
                 </div>
 
                 <div className="item-price-group">
