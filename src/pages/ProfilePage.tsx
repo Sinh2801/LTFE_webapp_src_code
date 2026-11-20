@@ -1,31 +1,57 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../app/hook'
 import { changePassword, setUser, updateProfile } from '../app/slices/authSlice'
-import { userService } from '../libs/services'
+import { orderService } from '../libs/services'
+import type { Order } from '../libs/types'
+import { formatPrice } from '../libs/format'
 import { getErrorMessage } from '../libs/apiClient'
 import { normalizeFullName, passwordResults, validateFullName, validatePassword } from '../libs/validation'
 
 const TABS = [
     { id: 'thong-tin', label: 'Thông tin' },
     { id: 'mat-khau', label: 'Mật khẩu' },
-    { id: 'ban', label: 'Bán hàng' },
+    { id: 'don-hang', label: 'Đơn hàng' },
 ] as const
 
 function ProfilePage() {
     const dispatch = useAppDispatch()
     const user = useAppSelector((s) => s.auth.user)
     const [params, setParams] = useSearchParams()
-    const tab = params.get('tab') ?? 'thong-tin'
+    const requestedTab = params.get('tab')
+    const tab = requestedTab === 'mat-khau' || requestedTab === 'don-hang' ? requestedTab : 'thong-tin'
     const [fullName, setFullName] = useState(user?.fullName ?? '')
     const [current, setCurrent] = useState('')
     const [next, setNext] = useState('')
     const [confirm, setConfirm] = useState('')
     const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
     const [busy, setBusy] = useState(false)
+    const [orders, setOrders] = useState<Order[]>([])
+    const [ordersStatus, setOrdersStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+    const [ordersError, setOrdersError] = useState('')
 
     useEffect(() => { document.title = 'Hồ sơ cá nhân | SourceCodeTST' }, [])
+
+    useEffect(() => {
+        if (tab !== 'don-hang') return
+        let active = true
+        setOrdersStatus('loading')
+        setOrdersError('')
+        orderService.list()
+            .then((data) => {
+                if (!active) return
+                setOrders(data)
+                setOrdersStatus('loaded')
+            })
+            .catch((error: unknown) => {
+                if (!active) return
+                setOrdersError(getErrorMessage(error))
+                setOrdersStatus('error')
+            })
+        return () => { active = false }
+    }, [tab])
+
     if (!user) return null
 
     const flash = (ok: boolean, text: string) => setMsg({ ok, text })
@@ -59,20 +85,6 @@ function ProfilePage() {
         } else flash(false, r.payload ?? 'Không đổi được mật khẩu')
     }
 
-    const becomeSeller = async () => {
-        setMsg(null)
-        setBusy(true)
-        try {
-            const updated = await userService.becomeSeller()
-            dispatch(setUser(updated))
-            flash(true, 'Chúc mừng! Bạn đã trở thành người bán')
-        } catch (e) {
-            flash(false, getErrorMessage(e))
-        } finally {
-            setBusy(false)
-        }
-    }
-
     const rules = passwordResults(next)
 
     return (
@@ -81,7 +93,7 @@ function ProfilePage() {
                 <span className="profile-avatar">{user.fullName.charAt(0).toUpperCase()}</span>
                 <div>
                     <h1>{user.fullName}</h1>
-                    <p>{user.email} · {user.role === 'seller' ? 'Người bán' : 'Người mua'}</p>
+                    <p>{user.email}</p>
                 </div>
             </div>
 
@@ -112,20 +124,39 @@ function ProfilePage() {
                 </form>
             )}
 
-            {tab === 'ban' && (
-                <div className="profile-panel">
-                    {user.role === 'seller' ? (
-                        <>
-                            <h3>✓ Bạn đang là người bán</h3>
-                            <p>Quản lý sản phẩm, đơn bán và đánh giá trong kênh người bán.</p>
-                        </>
-                    ) : (
-                        <>
-                            <h3>Trở thành người bán</h3>
-                            <p>Đăng sản phẩm mã nguồn, nhận đơn hàng và theo dõi doanh thu. Tài khoản vẫn dùng để mua hàng bình thường.</p>
-                            <button type="button" className="profile-btn" onClick={becomeSeller} disabled={busy}>Đăng ký làm người bán</button>
-                        </>
+            {tab === 'don-hang' && (
+                <div className="profile-orders">
+                    {ordersStatus === 'loading' && <div className="loading" role="status">Đang tải đơn hàng...</div>}
+                    {ordersStatus === 'error' && <p className="auth-alert" role="alert">{ordersError}</p>}
+                    {ordersStatus === 'loaded' && orders.length === 0 && (
+                        <div className="profile-panel profile-orders-empty">
+                            <h3>Bạn chưa có đơn hàng</h3>
+                            <p>Các đơn hàng của bạn sẽ hiển thị tại đây sau khi đặt mua.</p>
+                            <Link className="profile-btn" to="/products">Khám phá mã nguồn</Link>
+                        </div>
                     )}
+                    {orders.map((order) => (
+                        <article className="profile-panel profile-order" key={order.id}>
+                            <div className="profile-order__heading">
+                                <div>
+                                    <strong>Đơn hàng #{order.id}</strong>
+                                    <time dateTime={order.createdAt}>{new Date(order.createdAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}</time>
+                                </div>
+                                <span className={`profile-order__status profile-order__status--${order.status}`}>
+                                    {order.status === 'paid' ? 'Đã thanh toán' : order.status === 'failed' ? 'Thanh toán thất bại' : 'Chờ thanh toán'}
+                                </span>
+                            </div>
+                            <ul className="profile-order__items">
+                                {order.items.map((item) => (
+                                    <li key={item.productId}>
+                                        <Link to={`/products/${item.productId}`}>{item.title}</Link>
+                                        <span>{formatPrice(item.price)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="profile-order__total"><span>Tổng đơn hàng</span><strong>{formatPrice(order.total)}</strong></div>
+                        </article>
+                    ))}
                 </div>
             )}
         </div>

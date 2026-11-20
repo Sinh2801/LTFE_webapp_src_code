@@ -11,6 +11,8 @@ import NotFoundPage from '../pages/NotFoundPage';
 import CheckoutPage from '../pages/checkout/CheckoutPage.tsx'
 import RegisterPage from "../pages/RegisterPage.tsx";
 import ProfilePage from '../pages/ProfilePage';
+import ProductDetailPage from '../pages/ProductDetailPage';
+import FavoritesPage from '../pages/FavoritesPage';
 
 const router = createBrowserRouter([
     {
@@ -25,8 +27,20 @@ const router = createBrowserRouter([
                 element: <ProductsPage />,
             },
             {
+                path: '/products/:id',
+                element: <ProductDetailPage />,
+            },
+            {
+                path: '/favorites',
+                element: <FavoritesPage />,
+            },
+            {
                 element: <ProtectedRoute />,
                 children: [
+                    {
+                        path: '/checkout',
+                        element: <CheckoutPage />,
+                    },
                     {
                         path: '/profile',
                         element: <ProfilePage />,
@@ -36,10 +50,6 @@ const router = createBrowserRouter([
             {
                 path: '/cart',
                 element: <CartPage />,
-            },
-            {
-                path: '/checkout',
-                element: <CheckoutPage />,
             },
             {
                 path: '*',

@@ -1,6 +1,5 @@
 import { getToken } from './tokenStorage.ts'
 
-// Client dùng chung: khi gọi API đi qua file này, không gọi fetch trực tiếp trong component.
 export const API_BASE = '/api/v1'
 
 export class ApiError extends Error {
@@ -70,7 +69,6 @@ function defaultMessage(status: number): string {
 }
 
 function handleUnauthorized(status: number, auth: boolean): void {
-    // Token hết hạn/không hợp lệ: store sẽ đăng xuất người dùng
     if (status === 401 && auth) window.dispatchEvent(new Event('auth:unauthorized'))
 }
 

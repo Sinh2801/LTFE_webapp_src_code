@@ -18,7 +18,6 @@ export function saveCart(items: Product[]): void {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
     } catch {
-    //      bỏ qua
     }
 }
 
@@ -43,7 +42,6 @@ const cartSlice = createSlice({
 })
 
 export const { addToCart, removeFromCart, clearCart } = cartSlice.actions
-// tomng tiền: ưu tiên giá khuyến mãi
 export const selectCartTotal = (state: { cart: CartState }): number =>
     state.cart.items.reduce((sum, p) => sum + (p.salePrice ?? p.price), 0)
 export default cartSlice.reducer
