@@ -10,17 +10,17 @@ interface CategoryGridProps {
 
 function CategoryGrid({ categories, status, error, onRetry }: CategoryGridProps) {
     return (
-        <section className="home-section">
-            <div className="home-section__heading">
+        <section className="home-section home-category-section">
+            <div className="home-section__heading home-category-heading">
                 <div>
-                    <span className="home-section__eyebrow">DANH MỤC</span>
-                    <h2>Tìm theo lĩnh vực</h2>
+                    <span className="home-section__eyebrow">KHÁM PHÁ</span>
+                    <h2>Danh mục <span>nổi bật</span></h2>
                 </div>
-                <Link to="/products">Xem tất cả <span aria-hidden="true">→</span></Link>
+                <Link className="home-category-all" to="/products">Tất cả danh mục <span aria-hidden="true">→</span></Link>
             </div>
             {(status === 'idle' || status === 'loading') && (
                 <div className="home-category-grid" aria-label="Đang tải danh mục">
-                    {Array.from({ length: 6 }, (_, index) => <div className="home-category-skeleton" key={index} />)}
+                    {Array.from({ length: 8 }, (_, index) => <div className="home-category-skeleton" key={index} />)}
                 </div>
             )}
             {status === 'failed' && (
@@ -40,9 +40,11 @@ function CategoryGrid({ categories, status, error, onRetry }: CategoryGridProps)
                             key={category.id}
                             to={`/products?category=${encodeURIComponent(category.slug)}`}
                         >
-                            <span className="home-category-card__icon" aria-hidden="true">{category.icon ?? '⌘'}</span>
+                            <span className="home-category-card__icon" aria-hidden="true">
+                                {category.image ? <img src={category.image} alt="" loading="lazy" /> : category.icon ?? '⌘'}
+                            </span>
                             <span className="home-category-card__name">{category.name}</span>
-                            <span className="home-category-card__description">{category.description}</span>
+                            <span className="home-category-card__count">{category.productCount ?? 0} sản phẩm</span>
                         </Link>
                     ))}
                 </div>
