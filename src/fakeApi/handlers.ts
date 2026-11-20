@@ -1,7 +1,4 @@
-// Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
-import type {UserRole, Order, Product, PaginatedResult} from '../libs/types'
-import {loadDb, nextId, saveDb, type FakeDb, type FakeProduct, type StoredOrder} from './db'
 import type {UserRole, Order, Product, PaymentMethod, PaginatedResult} from '../libs/types'
 import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder, type FakeProduct} from './db'
 import type { SeedUser } from './seed'
@@ -75,7 +72,6 @@ function failure(status: number, message: string, errors: string[] = []): Respon
     return json({ success: false, message, errors }, status)
 }
 
-//check login
 
 export function requireUser(db: FakeDb, token: string | null): SeedUser {
     if (!token) throw new HttpError(401, 'Bạn cần đăng nhập để thực hiện thao tác này')
@@ -140,7 +136,12 @@ function productPrice(product: Product): number {
 
 add('GET', '/categories', async () => {
     const db = loadDb()
-    return success(db.categories.map((category) => ({ ...category })))
+    return success(db.categories.map((category) => ({
+        ...category,
+        productCount: db.products.filter((product) =>
+            product.status === 'approved' && (product.categoryId === category.id || normalizeText(product.category) === normalizeText(category.name)),
+        ).length,
+    })))
 })
 
 add('GET', '/products', async ({ query }) => {
@@ -249,7 +250,6 @@ function makeToken(): string {
     return `fake_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
 }
 
-//auth
 
 add('POST', '/auth/register', async ({ body }) => {
     const input = bodyObject(body)
@@ -267,7 +267,7 @@ add('POST', '/auth/register', async ({ body }) => {
     const passwordSalt = newSalt()
     const user: SeedUser = {
         id: nextId(db, 'u'),
-        role: body && (body as { role?: string }).role === 'seller' ? 'seller' : 'buyer',
+        role: 'buyer',
         fullName,
         email,
         passwordSalt,
@@ -281,7 +281,6 @@ add('POST', '/auth/register', async ({ body }) => {
     return success({ user: publicUser(user), access_token: token }, 201, 'Register successful')
 })
 
-//ajax check
 add('GET', '/auth/check-email', async ({ query }) => {
     const email = normalizeEmail(query.get('email') ?? '')
     assertValid(validateEmail(email))
@@ -318,16 +317,6 @@ add('POST', '/auth/logout', async ({ token }) => {
     return success(null, 200, 'Logout successful')
 })
 
-//profile
-
-add('POST', '/users/me/become-seller', async ({ token }) => {
-    const db = loadDb()
-    const user = requireUser(db, token)
-    if (user.role === 'seller') throw new HttpError(409, 'Bạn đã là người bán')
-    user.role = 'seller'
-    saveDb(db)
-    return success(publicUser(user), 200, ' Chào mừng, Bạn đã trở thành người bán')
-})
 
 add('PUT', '/users/me', async ({ token, body }) => {
     const db = loadDb()
@@ -361,10 +350,30 @@ add('GET', '/orders/:id', async ({ params, token }) => {
     const order = db.orders.find((o) => o.id === params.id)
     if (!order) throw new HttpError(404, 'Đơn hàng không tồn tại')
     if (order.userId !== user.id) throw new HttpError(403, 'Bạn không có quyền xem đơn hàng này')
+    resolvePayment(order)
+    saveDb(db)
     return success(toPublicOrder(order))
 })
 
-// order
+add('GET', '/orders', async ({ token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    db.orders.forEach(resolvePayment)
+    saveDb(db)
+    const orders = db.orders
+        .filter((order) => order.userId === user.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return success(orders.map(toPublicOrder))
+})
+
+function resolvePayment(order: StoredOrder): void {
+    if (order.status !== 'pending' || !order.payResolveAt || Date.now() < order.payResolveAt) return
+    order.status = order.payOutcome ?? 'failed'
+    order.paidAt = order.status === 'paid' ? new Date().toISOString() : null
+    order.payResolveAt = null
+    order.payOutcome = null
+}
+
 add('POST', '/orders', async ({ token, body }) => {
     const db = loadDb()
     const user = requireUser(db, token)
@@ -373,7 +382,6 @@ add('POST', '/orders', async ({ token, body }) => {
     if (ids.length === 0) throw new HttpError(400, 'Giỏ hàng đang trống')
     if (new Set(ids).size !== ids.length) throw new HttpError(422, 'Danh sách sản phẩm có trùng lặp')
 
-    // Giá lấy từ danh mục phía server, không tin giá do client gửi lên
     const items = ids.map((id) => {
         const product = findProduct(id)
         if (hasPurchased(db, user.id, id)) {
