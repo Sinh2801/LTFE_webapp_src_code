@@ -1,13 +1,23 @@
 import { API_BASE } from '../libs/apiClient'
-import type {UserRole, Order, Product, PaymentMethod, PaginatedResult} from '../libs/types'
-import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder, type FakeProduct} from './db'
+import type {UserRole, Order, Product, PaymentMethod, PaginatedResult, Review, ReviewSummary, LibraryItem, WarrantyTicket, WarrantyType,
+} from '../libs/types'
+import {loadDb as loadStoredDb, nextId, saveDb, type FakeDb, type StoredOrder, type StoredTicket, type FakeProduct} from './db'
 import type { SeedUser } from './seed'
 import { formatPrice, effectivePrice } from '../libs/format'
-import {SEED_PRODUCTS} from "./seed";
-import { normalizeEmail, normalizeFullName, validateEmail, validateFullName, validatePassword } from '../libs/validation'
+import {SEED_PRODUCTS, makeSeedReviews} from "./seed";
+import { installGuideAsText } from '../libs/installGuide'
+import {
+    COMMENT_MAX, normalizeEmail, normalizeFullName, validateEmail, validateFullName, validatePassword, validateReview,
+} from '../libs/validation'
+import {
+    DAY_MS, WARRANTY_DAYS, WARRANTY_DESC_MAX, WARRANTY_DESC_MIN, WARRANTY_TYPES,
+} from '../libs/warranty'
+import { createZip } from './zip'
 
 const LATENCY_MS = 300
 export const PAY_DELAY_MS = 2500
+const TICKET_PROCESS_MS = 6000
+const TICKET_RESOLVE_MS = 20000
 
 export class HttpError extends Error {
     status: number
@@ -37,6 +47,14 @@ interface Route {
 }
 
 const routes: Route[] = []
+
+function loadDb(): FakeDb {
+    const db = loadStoredDb()
+    if (!Array.isArray(db.reviews)) db.reviews = makeSeedReviews()
+    if (!Array.isArray(db.downloads)) db.downloads = []
+    if (!Array.isArray(db.tickets)) db.tickets = []
+    return db
+}
 
 function add(method: string, path: string, handler: Handler): void {
     routes.push({ method, segments: path.split('/').filter(Boolean), handler })
@@ -101,12 +119,18 @@ function normalizeText(value: string): string {
         .trim()
 }
 
-function publicProduct(product: FakeProduct): Product {
+function publicProduct(db: FakeDb, product: FakeProduct): Product {
     const result = { ...product }
     delete result.previewFileId
     delete result.sourceFileId
     delete result.sourceFileName
     delete result.sourceFileSize
+    const reviews = db.reviews.filter((review) => review.productId === product.id)
+    if (reviews.length > 0) {
+        result.reviewCount = reviews.length
+        result.rating = Math.round((reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) * 10) / 10
+    }
+    result.downloads = product.downloads + db.downloads.filter((log) => log.productId === product.id).length
     return result
 }
 
@@ -165,7 +189,7 @@ add('GET', '/products', async ({ query }) => {
     const validSorts = ['newest', 'popular', 'best-selling', 'rating', 'price_asc', 'price_desc', 'price-asc', 'price-desc', 'name_asc']
     if (!validSorts.includes(sort)) throw new HttpError(422, 'Cách sắp xếp không hợp lệ')
 
-    let products = db.products.filter((product) => product.status === 'approved')
+    let products = db.products.filter((product) => product.status === 'approved').map((product) => publicProduct(db, product))
     if (keyword) {
         products = products.filter((product) => {
             const content = [product.title, product.description, product.code, product.category, ...product.features, ...product.technologies]
@@ -204,7 +228,7 @@ add('GET', '/products', async ({ query }) => {
 
     const total = products.length
     const result: PaginatedResult<Product> = {
-        items: products.slice((page - 1) * limit, page * limit).map(publicProduct),
+        items: products.slice((page - 1) * limit, page * limit),
         page,
         limit,
         total,
@@ -217,7 +241,7 @@ add('GET', '/products/:id', async ({ params }) => {
     const db = loadDb()
     const product = db.products.find((item) => item.id === params.id && item.status === 'approved')
     if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
-    return success(publicProduct(product))
+    return success(publicProduct(db, product))
 })
 
 function bodyObject(body: unknown): Record<string, unknown> {
@@ -377,6 +401,7 @@ function resolvePayment(order: StoredOrder): void {
 add('POST', '/orders', async ({ token, body }) => {
     const db = loadDb()
     const user = requireUser(db, token)
+    settleAll(db)
     const input = bodyObject(body)
     const ids = Array.isArray(input.productIds) ? input.productIds.filter((id): id is string => typeof id === 'string') : []
     if (ids.length === 0) throw new HttpError(400, 'Giỏ hàng đang trống')
@@ -416,6 +441,7 @@ add('POST', '/orders', async ({ token, body }) => {
 add('POST', '/orders/:id/pay', async ({ params, token, body }) => {
     const db = loadDb()
     const user = requireUser(db, token)
+    settleAll(db)
     const input = bodyObject(body)
     const method = input.method
     if (method !== 'card' && method !== 'wallet') {
@@ -437,6 +463,229 @@ add('POST', '/orders/:id/pay', async ({ params, token, body }) => {
     order.paidAt = null
     saveDb(db)
     return success(toPublicOrder(order), 202, 'Đang xử lý thanh toán')
+})
+function optionalUser(db: FakeDb, token: string | null): SeedUser | null {
+    if (!token) return null
+    return db.users.find((u) => u.id === db.sessions[token]) ?? null
+}
+function settleAll(db: FakeDb): void {
+    const before = JSON.stringify([db.orders, db.tickets])
+    db.orders.forEach(resolvePayment)
+    const now = Date.now()
+    for (const ticket of db.tickets) {
+        if (ticket.status === 'resolved') continue
+        if (ticket.resolveAt && now >= ticket.resolveAt) {
+            ticket.status = 'resolved'
+            ticket.reply = ticketReply(ticket.type)
+            ticket.updatedAt = new Date().toISOString()
+            ticket.processAt = null
+            ticket.resolveAt = null
+        } else if (ticket.status === 'open' && ticket.processAt && now >= ticket.processAt) {
+            ticket.status = 'processing'
+            ticket.updatedAt = new Date().toISOString()
+            ticket.processAt = null
+        }
+    }
+    if (JSON.stringify([db.orders, db.tickets]) !== before) saveDb(db)
+}
+
+function ticketReply(type: WarrantyType): string {
+    if (type === 'bug') return 'Chúng tôi đã tái hiện và vá lỗi bạn báo cáo. Hãy tải lại gói mã nguồn trong Hồ sơ → Mã nguồn đã mua, xóa thư mục node_modules rồi chạy lại npm install.'
+    if (type === 'install') return 'Bạn hãy kiểm tra phiên bản Node.js (từ 18 trở lên), xóa node_modules và package-lock.json, chạy npm install rồi npm run dev. Nếu vẫn lỗi, hãy gửi thêm ảnh chụp terminal để được hỗ trợ tiếp.'
+    return 'Cảm ơn bạn đã liên hệ. Giấy phép đi kèm cho phép sử dụng trong dự án của bạn, chi tiết xem tại trang Chính sách.'
+}
+
+function paidOrderOf(db: FakeDb, userId: string, productId: string): StoredOrder | undefined {
+    return db.orders.find(
+        (o) => o.userId === userId && o.status === 'paid' && o.items.some((i) => i.productId === productId),
+    )
+}
+
+function productOrSeed(db: FakeDb, id: string): FakeProduct | undefined {
+    return db.products.find((p) => p.id === id) ?? (SEED_PRODUCTS.find((p) => p.id === id) as FakeProduct | undefined)
+}
+function buildReviewSummary(db: FakeDb, productId: string, userId: string | null): ReviewSummary {
+    const items = db.reviews
+        .filter((r) => r.productId === productId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const distribution: ReviewSummary['distribution'] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    for (const review of items) distribution[review.rating as 1 | 2 | 3 | 4 | 5] += 1
+    const average = items.length
+        ? Math.round((items.reduce((sum, r) => sum + r.rating, 0) / items.length) * 10) / 10
+        : 0
+    return { items, average, count: items.length, distribution, mine: userId ? items.find((r) => r.userId === userId) ?? null : null }
+}
+
+add('GET', '/products/:id/reviews', async ({ params, token }) => {
+    const db = loadDb()
+    const product = db.products.find((p) => p.id === params.id && p.status === 'approved')
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    return success(buildReviewSummary(db, product.id, optionalUser(db, token)?.id ?? null))
+})
+
+function parseReviewBody(body: unknown): { rating: number; comment: string } {
+    const input = bodyObject(body)
+    const rating = Number(input.rating)
+    const comment = typeof input.comment === 'string' ? input.comment.trim().replace(/\s+\n/g, '\n') : ''
+    assertValid(validateReview(rating, comment))
+    return { rating, comment: comment.slice(0, COMMENT_MAX) }
+}
+
+add('POST', '/products/:id/reviews', async ({ params, token, body }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    settleAll(db)
+    const product = db.products.find((p) => p.id === params.id && p.status === 'approved')
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    if (!paidOrderOf(db, user.id, product.id)) {
+        throw new HttpError(403, 'Chỉ khách hàng đã mua và thanh toán thành công mới được đánh giá sản phẩm')
+    }
+    if (db.reviews.some((r) => r.productId === product.id && r.userId === user.id)) {
+        throw new HttpError(409, 'Bạn đã đánh giá sản phẩm này, hãy chỉnh sửa đánh giá hiện có')
+    }
+    const { rating, comment } = parseReviewBody(body)
+    const review: Review = {
+        id: nextId(db, 'rv'),
+        productId: product.id,
+        userId: user.id,
+        userName: user.fullName,
+        rating,
+        comment,
+        createdAt: new Date().toISOString(),
+    }
+    db.reviews.push(review)
+    saveDb(db)
+    return success(review, 201, 'Cảm ơn bạn đã đánh giá')
+})
+
+add('PUT', '/reviews/:id', async ({ params, token, body }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    const review = db.reviews.find((r) => r.id === params.id)
+    if (!review) throw new HttpError(404, 'Không tìm thấy đánh giá')
+    if (review.userId !== user.id) throw new HttpError(403, 'Bạn chỉ được sửa đánh giá của chính mình')
+    const { rating, comment } = parseReviewBody(body)
+    review.rating = rating
+    review.comment = comment
+    review.updatedAt = new Date().toISOString()
+    saveDb(db)
+    return success(review, 200, 'Đã cập nhật đánh giá')
+})
+add('GET', '/library', async ({ token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    settleAll(db)
+    const items: LibraryItem[] = []
+    const paid = db.orders
+        .filter((o) => o.userId === user.id && o.status === 'paid' && o.paidAt)
+        .sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? ''))
+    for (const order of paid) {
+        for (const item of order.items) {
+            const product = productOrSeed(db, item.productId)
+            if (!product || items.some((x) => x.id === product.id)) continue
+            const logs = db.downloads
+                .filter((log) => log.userId === user.id && log.productId === product.id)
+                .sort((a, b) => b.at.localeCompare(a.at))
+            items.push({
+                ...publicProduct(db, product),
+                orderId: order.id,
+                purchasedAt: order.paidAt as string,
+                downloadCount: logs.length,
+                lastDownloadedAt: logs[0]?.at ?? null,
+                warrantyExpiresAt: new Date(new Date(order.paidAt as string).getTime() + WARRANTY_DAYS * DAY_MS).toISOString(),
+            })
+        }
+    }
+    return success(items)
+})
+
+add('GET', '/products/:id/download', async ({ params, token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    settleAll(db)
+    const product = productOrSeed(db, params.id)
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    // mua một lần, tải lại không giới hạn: chỉ cần đã có đơn paid chứa sản phẩm
+    if (!paidOrderOf(db, user.id, product.id)) {
+        throw new HttpError(403, 'Bạn cần mua sản phẩm này và thanh toán thành công trước khi tải mã nguồn')
+    }
+    const filename = `${product.id}-v${product.version}.zip`
+    const blob = createZip([
+        { name: 'README.md', content: installGuideAsText(product) },
+        { name: 'LICENSE.txt', content: `Giấy phép: ${product.license}\nMã sản phẩm: ${product.code}\nNgười mua: ${user.email}\n` },
+        { name: 'package.json', content: JSON.stringify({ name: product.id, version: product.version, private: true }, null, 2) },
+        { name: 'src/index.ts', content: `// Mã nguồn mẫu của "${product.title}"\nconsole.log('Xin chào từ ${product.code}')\n` },
+    ])
+    db.downloads.push({ id: nextId(db, 'dl'), userId: user.id, productId: product.id, at: new Date().toISOString() })
+    saveDb(db)
+    return new Response(blob, {
+        status: 200,
+        headers: { 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${filename}"` },
+    })
+})
+function publicTicket(ticket: StoredTicket): WarrantyTicket {
+    return {
+        id: ticket.id, userId: ticket.userId, productId: ticket.productId, productTitle: ticket.productTitle,
+        orderId: ticket.orderId, type: ticket.type, description: ticket.description, status: ticket.status,
+        reply: ticket.reply, createdAt: ticket.createdAt, updatedAt: ticket.updatedAt,
+    }
+}
+
+add('GET', '/warranty-requests', async ({ token }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    settleAll(db)
+    const tickets = db.tickets
+        .filter((t) => t.userId === user.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return success(tickets.map(publicTicket))
+})
+
+add('POST', '/warranty-requests', async ({ token, body }) => {
+    const db = loadDb()
+    const user = requireUser(db, token)
+    settleAll(db)
+    const input = bodyObject(body)
+    const productId = typeof input.productId === 'string' ? input.productId : ''
+    const type = input.type as WarrantyType
+    const description = typeof input.description === 'string' ? input.description.trim() : ''
+    if (!WARRANTY_TYPES.some((item) => item.value === type)) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Loại yêu cầu bảo hành không hợp lệ'])
+    }
+    if (description.length < WARRANTY_DESC_MIN || description.length > WARRANTY_DESC_MAX) {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', [`Mô tả vấn đề từ ${WARRANTY_DESC_MIN} đến ${WARRANTY_DESC_MAX} ký tự`])
+    }
+    const product = productOrSeed(db, productId)
+    if (!product) throw new HttpError(404, 'Không tìm thấy sản phẩm')
+    const order = paidOrderOf(db, user.id, product.id)
+    if (!order || !order.paidAt) {
+        throw new HttpError(403, 'Chỉ khách hàng đã mua sản phẩm mới được gửi yêu cầu bảo hành')
+    }
+    if (new Date(order.paidAt).getTime() + WARRANTY_DAYS * DAY_MS <= Date.now()) {
+        throw new HttpError(422, 'Sản phẩm đã hết hạn bảo hành', [`Thời hạn bảo hành là ${WARRANTY_DAYS} ngày kể từ ngày thanh toán`])
+    }
+    if (db.tickets.some((t) => t.userId === user.id && t.productId === product.id && t.status !== 'resolved')) {
+        throw new HttpError(409, 'Bạn đang có một yêu cầu bảo hành chưa hoàn tất cho sản phẩm này')
+    }
+    const now = Date.now()
+    const ticket: StoredTicket = {
+        id: nextId(db, 'wr'),
+        userId: user.id,
+        productId: product.id,
+        productTitle: product.title,
+        orderId: order.id,
+        type,
+        description,
+        status: 'open',
+        reply: null,
+        createdAt: new Date(now).toISOString(),
+        updatedAt: new Date(now).toISOString(),
+        processAt: now + TICKET_PROCESS_MS,
+        resolveAt: now + TICKET_RESOLVE_MS,
+    }
+    db.tickets.push(ticket)
+    saveDb(db)
+    return success(publicTicket(ticket), 201, 'Đã tiếp nhận yêu cầu bảo hành')
 })
 
 export function toPublicOrder(order: StoredOrder): Order {

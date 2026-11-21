@@ -1,4 +1,5 @@
-import type {Category, Order, Product, UserRole} from '../libs/types'
+import type {Category, Order, Product, Review, UserRole} from '../libs/types'
+import { DAY_MS } from '../libs/warranty'
 import ecommerceCategoryImage from '../assets/category-ecommerce.png'
 import managementCategoryImage from '../assets/category-management.png'
 import websiteCategoryImage from '../assets/category-website.png'
@@ -39,8 +40,6 @@ export const SEED_USERS: SeedUser[] = [
         createdAt: '2026-10-15T08:00:00.000Z',
     },
 ]
-
-export const SEED_ORDERS: Order[] = []
 
 export const SEED_CATEGORIES: Category[] = [
     {
@@ -327,3 +326,84 @@ export const SEED_PRODUCTS: Product[] = [
         createdAt: '2026-10-10T00:00:00.000Z',
     },
 ]
+
+const priceOf = (id: string): number => {
+    const product = SEED_PRODUCTS.find((item) => item.id === id) as Product
+    return product.salePrice ?? product.price
+}
+
+function seedOrder(id: string, productId: string, daysAgo: number): Order {
+    const product = SEED_PRODUCTS.find((item) => item.id === productId) as Product
+    const paidAt = new Date(Date.now() - daysAgo * DAY_MS).toISOString()
+    return {
+        id,
+        userId: 'u-demo',
+        items: [{ productId, title: product.title, price: priceOf(productId), thumbnail: product.thumbnail }],
+        total: priceOf(productId),
+        status: 'paid',
+        paymentMethod: 'card',
+        createdAt: paidAt,
+        paidAt,
+    }
+}
+
+export const SEED_ORDERS: Order[] = [
+    seedOrder('o-seed-1', 'product-landing-demo', 12),
+    seedOrder('o-seed-2', 'product-blog-demo', 45),
+]
+
+const REVIEWER_NAMES = [
+    'Thanh Tuấn', 'Văn Tính', 'Võ Sinh', 'Hoàng Quân', 'Minh Anh', 'Ngọc Hân',
+    'Quốc Bảo', 'Thu Trang', 'Đức Huy', 'Khánh Linh', 'Gia Bảo', 'Phương Thảo',
+]
+const COMMENTS_5 = [
+    'Code sạch, cấu trúc thư mục rõ ràng, cài đặt xong chạy ngay.',
+    'Giao diện đẹp đúng như bản demo, tiết kiệm cho mình rất nhiều thời gian.',
+    'Tài liệu hướng dẫn chi tiết, được hỗ trợ cài đặt rất nhanh.',
+    'Mua làm đồ án, thầy khen phần giao diện và cách tổ chức component.',
+    'Giá hợp lý so với chất lượng. Sẽ ủng hộ thêm các sản phẩm khác.',
+    'Responsive tốt trên cả điện thoại và máy tính, không phải sửa nhiều.',
+    'Hỗ trợ kỹ thuật phản hồi trong ngày, xử lý lỗi môi trường rất gọn.',
+    'Tải về nhiều lần không giới hạn nên rất yên tâm khi đổi máy.',
+]
+const COMMENTS_4 = [
+    'Chất lượng tốt, chỉ cần chỉnh thêm một vài chỗ cho hợp dự án của mình.',
+    'Code ổn, mong có thêm ghi chú trong phần xử lý nâng cao.',
+    'Giao diện đẹp, cài đặt hơi lâu do phải cấu hình biến môi trường.',
+]
+
+export function makeSeedReviews(): Review[] {
+    const reviews: Review[] = []
+    for (const product of SEED_PRODUCTS) {
+        const count = Math.min(product.reviewCount ?? 0, 40)
+        const target = Math.round((product.rating ?? 5) * count)
+        let deficit = Math.max(0, count * 5 - target)
+        for (let index = 0; index < count; index += 1) {
+            let rating = 5
+            if (deficit > 0 && index % 3 === 1) {
+                rating = 4
+                deficit -= 1
+            }
+            const pool = rating === 5 ? COMMENTS_5 : COMMENTS_4
+            const created = new Date(Date.UTC(2026, 10, 18) - (index * 2 + 1) * DAY_MS).toISOString()
+            reviews.push({
+                id: `rv-seed-${product.id}-${index}`,
+                productId: product.id,
+                userId: `u-seed-${index}`,
+                userName: REVIEWER_NAMES[(index + product.code.length) % REVIEWER_NAMES.length],
+                rating,
+                comment: pool[(index + product.title.length) % pool.length],
+                createdAt: created,
+            })
+        }
+        const own = reviews.filter((r) => r.productId === product.id)
+        for (let i = own.length - 1; i >= 0 && deficit > 0; i -= 1) {
+            if (own[i].rating === 5) {
+                own[i].rating = 4
+                own[i].comment = COMMENTS_4[i % COMMENTS_4.length]
+                deficit -= 1
+            }
+        }
+    }
+    return reviews
+}
