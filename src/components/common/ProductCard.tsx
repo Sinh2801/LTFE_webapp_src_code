@@ -6,6 +6,7 @@ import { toggleFavorite } from '../../app/slices/favoritesSlice'
 import { selectIsOwned } from '../../app/slices/librarySlice'
 import { useToast } from './Toast'
 import type { Product } from '../../libs/types'
+import { selectIsProductPurchased } from '../../app/slices/orderSlice'
 
 interface ProductCardProps {
     product: Product

@@ -13,6 +13,7 @@ const TABS: DetailTab[] = ['mo-ta', 'cai-dat', 'bao-hanh', 'danh-gia']
 function ProductDetailPage() {
     const { id = '' } = useParams()
     const dispatch = useAppDispatch()
+    const isPurchased = useAppSelector((state) => selectIsProductPurchased(state, id))
     const { detail, detailStatus, related } = useAppSelector((state) => state.products)
     const reviewState = useAppSelector((state) => state.reviews)
     const [params, setParams] = useSearchParams()
