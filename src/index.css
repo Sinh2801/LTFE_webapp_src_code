@@ -37,6 +37,22 @@
     --radius-large: 18px;
 }
 
+:root[data-theme='dark'] {
+    color-scheme: dark;
+    --brand-dark: #eef2f8;
+    --brand-blue: #91b4ff;
+    --brand-blue-dark: #7299ec;
+    --brand-blue-soft: #263653;
+    --brand-blue-border: #3d5379;
+    --text-main: #edf2fa;
+    --text-muted: #a6b1c2;
+    --surface: #1e2633;
+    --surface-muted: #141a23;
+    --input-bg: #283241;
+    --border-color: #354153;
+    --card-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+}
+
 * {
     box-sizing: border-box;
 }

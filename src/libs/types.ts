@@ -1,4 +1,4 @@
-export type UserRole = 'buyer' | 'seller' // add nguoi ban
+export type UserRole = 'buyer'
 export type ProductStatus = 'approved' | 'hidden'
 
 export interface User {
@@ -20,6 +20,8 @@ export interface Category {
     slug: string
     description: string
     icon?: string
+    image?: string
+    productCount?: number
     createdAt: string
 }
 
@@ -39,8 +41,6 @@ export interface Product {
     salePrice?: number
     thumbnail?: string
     demoUrl?: string
-    sellerId: string
-    sellerName: string
     fileName?: string
     fileSize?: number
     downloads: number

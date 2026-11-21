@@ -6,7 +6,6 @@ import { store } from './app/store.ts'
 import { installFakeApi } from './fakeApi/install.ts'
 import './index.css'
 
-//Fake API: chặn các request /api/v1
 installFakeApi()
 createRoot(document.getElementById('root')!).render(
     <StrictMode>

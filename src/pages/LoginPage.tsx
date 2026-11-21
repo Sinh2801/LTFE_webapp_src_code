@@ -7,7 +7,6 @@ import { normalizeEmail, validateEmail, validateLoginPassword } from '../libs/va
 
 const DEMOS = [
     { label: 'Người mua', email: 'demo@sourcecode.vn' },
-    { label: 'Người bán', email: 'seller@sourcecode.vn' },
 ]
 const DEMO_PASSWORD = '12345678'
 
@@ -29,7 +28,7 @@ function LoginPage() {
         dispatch(clearAuthError())
     }, [dispatch])
 
-    if (user) return <Navigate to={from ?? (user.role === 'seller' ? '/seller' : '/')} replace />
+    if (user) return <Navigate to={from ?? '/'} replace />
 
     const submit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
@@ -37,7 +36,7 @@ function LoginPage() {
         if (!canSubmit) return
         const result = await dispatch(loginUser({ email: normalizeEmail(email), password }))
         if (loginUser.fulfilled.match(result)) {
-            navigate(from ?? (result.payload.user.role === 'seller' ? '/seller' : '/'), { replace: true })
+            navigate(from ?? '/', { replace: true })
         }
     }
 
@@ -45,11 +44,11 @@ function LoginPage() {
         <div className="auth-page">
             <aside className="auth-aside">
                 <h2>Chào mừng trở lại</h2>
-                <p>Đăng nhập để tải mã nguồn đã mua, theo dõi đơn hàng hoặc quản lý sản phẩm của bạn.</p>
+                <p>Đăng nhập để theo dõi đơn hàng và truy cập lại mã nguồn bạn đã mua.</p>
                 <ul>
-                    <li>✓ Thư viện mã nguồn luôn sẵn sàng</li>
-                    <li>✓ Theo dõi doanh thu và đánh giá</li>
-                    <li>✓ Mật khẩu luôn được băm khi lưu</li>
+                    <li>✓ Theo dõi trạng thái đơn hàng</li>
+                    <li>✓ Truy cập mã nguồn đã mua</li>
+                    <li>✓ Quản lý thông tin tài khoản</li>
                 </ul>
             </aside>
 

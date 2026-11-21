@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAppSelector } from '../../app/hook'
 
-function ProtectedRoute({ role }: { role?: 'buyer' | 'seller' }) {
+function ProtectedRoute({ role }: { role?: 'buyer' }) {
     const { user, initialized } = useAppSelector((s) => s.auth)
     const location = useLocation()
 
