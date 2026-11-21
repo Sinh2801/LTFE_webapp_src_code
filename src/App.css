@@ -393,6 +393,38 @@
     gap: 32px;
 }
 
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-small);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.btn-primary {
+    background: var(--brand-blue);
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: var(--brand-blue-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgb(9 49 141 / 20%);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
 .footer-column {
     display: flex;
     flex-direction: column;
