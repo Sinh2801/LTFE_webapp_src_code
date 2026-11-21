@@ -2,6 +2,7 @@ import { createSlice } from '@reduxjs/toolkit'
 import type { PayloadAction } from '@reduxjs/toolkit'
 import type { Order, OrderStatus } from '../../libs/types'
 import { logout } from './authSlice'
+import type { RootState } from '../store'
 
 interface OrderState {
     orders: Order[]
@@ -28,6 +29,11 @@ const orderSlice = createSlice({
         builder.addCase(logout, () => initialState)
     },
 })
-
+export const selectIsProductPurchased = (state: RootState, productId: string): boolean =>
+    state.orders.orders.some(
+        (order) =>
+            order.status === 'paid' &&
+            order.items.some((item) => item.productId === productId),
+    )
 export const { loadOrders, addOrder, updateOrderStatus } = orderSlice.actions
 export default orderSlice.reducer
