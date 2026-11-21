@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from '../../app/hook'
 import { signOut } from '../../app/slices/authSlice'
 import sourceCodeLogo from '../../assets/sourcecode-logo.png'
+import { preferences, usePreferences } from '../../hooks/usePreferences'
 
 function LanguageFlag({ language }: { language: 'vi' | 'en' }) {
     if (language === 'vi') {
@@ -31,14 +32,9 @@ function Header() {
     const location = useLocation()
     const user = useAppSelector((state) => state.auth.user)
     const cartCount = useAppSelector((state) => state.cart.items.length)
-    const [language, setLanguage] = useState<'vi' | 'en'>(() => localStorage.getItem('language') === 'en' ? 'en' : 'vi')
+    const { language, theme } = usePreferences()
     const [languageOpen, setLanguageOpen] = useState(false)
-    const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
-
-    useEffect(() => {
-        document.documentElement.dataset.theme = darkMode ? 'dark' : 'light'
-        localStorage.setItem('theme', darkMode ? 'dark' : 'light')
-    }, [darkMode])
+    const darkMode = theme === 'dark'
 
     function handleSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -62,6 +58,7 @@ function Header() {
                 <nav className="main-nav">
                     <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : undefined}>Trang chủ</NavLink>
                     <NavLink to="/products" className={({ isActive }) => isActive ? 'active' : undefined}>Sản phẩm</NavLink>
+                    <NavLink to="/chinh-sach" className={({ isActive }) => isActive ? 'active' : undefined}>Chính sách</NavLink>
                     <a href="/#gioi-thieu">Giới thiệu</a>
                     <a href="/#lien-he">Liên hệ</a>
                 </nav>
@@ -131,10 +128,10 @@ function Header() {
                         </button>
                         {languageOpen && (
                             <div className="language-menu" role="menu">
-                                <button type="button" role="menuitemradio" aria-checked={language === 'vi'} onClick={() => { setLanguage('vi'); localStorage.setItem('language', 'vi'); setLanguageOpen(false) }}>
+                                <button type="button" role="menuitemradio" aria-checked={language === 'vi'} onClick={() => { preferences.setLanguage('vi'); setLanguageOpen(false) }}>
                                     <LanguageFlag language="vi" /> Tiếng Việt
                                 </button>
-                                <button type="button" role="menuitemradio" aria-checked={language === 'en'} onClick={() => { setLanguage('en'); localStorage.setItem('language', 'en'); setLanguageOpen(false) }}>
+                                <button type="button" role="menuitemradio" aria-checked={language === 'en'} onClick={() => { preferences.setLanguage('en'); setLanguageOpen(false) }}>
                                     <LanguageFlag language="en" /> English
                                 </button>
                             </div>
@@ -145,7 +142,7 @@ function Header() {
                         className="theme-toggle"
                         aria-label={darkMode ? 'Bật giao diện sáng' : 'Bật giao diện tối'}
                         title={darkMode ? 'Giao diện sáng' : 'Giao diện tối'}
-                        onClick={() => setDarkMode((dark) => !dark)}
+                        onClick={() => preferences.setTheme(darkMode ? 'light' : 'dark')}
                     >
                         {darkMode ? (
                             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></svg>
