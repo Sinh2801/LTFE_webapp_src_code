@@ -7,6 +7,8 @@ import libraryReducer from './slices/librarySlice'
 import orderReducer from './slices/orderSlice'
 import productReducer from './slices/productSlice'
 import favoritesReducer, { saveFavorites } from './slices/favoritesSlice'
+import reviewReducer from './slices/reviewSlice'
+import warrantyReducer from './slices/warrantySlice'
 
 export const store = configureStore({
     reducer: {
@@ -17,6 +19,8 @@ export const store = configureStore({
         orders: orderReducer,
         library: libraryReducer,
         favorites: favoritesReducer,
+        reviews: reviewReducer,
+        warranty: warrantyReducer,
     },
 })
 
