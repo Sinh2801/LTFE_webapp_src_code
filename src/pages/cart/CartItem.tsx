@@ -1,72 +1,126 @@
-import {useDispatch} from 'react-redux';
-import {removeFromCart} from '../../app/slices/cartSlice';
-import {selectIsOwned} from '../../app/slices/librarySlice';
-import {useAppSelector} from '../../app/hook';
-import type {Product} from '../../libs/types.ts';
-import {useToast} from "../../components/common/Toast.tsx";
-import {Link} from "react-router-dom";
+import { useDispatch } from 'react-redux';
+import { removeFromCart } from '../../app/slices/cartSlice';
+import { selectIsOwned } from '../../app/slices/librarySlice';
+import { useAppSelector } from '../../app/hook';
+import type { Product } from '../../libs/types.ts';
+import { useToast } from '../../components/common/Toast.tsx';
+import { Link } from 'react-router-dom';
 
 interface CartItemProps {
     item: Product;
+    checked: boolean;
+    onToggle: (id: string) => void;
 }
 
-export function CartItem({item}: CartItemProps) {
+export function CartItem({ item, checked, onToggle }: CartItemProps) {
     const dispatch = useDispatch();
-    const {showToast} = useToast();
-    // 2 tài khoản mua sản phẩm 1 lần.
+    const { showToast } = useToast();
     const owned = useAppSelector(selectIsOwned(item.id));
 
+    const hasDiscount = item.salePrice !== undefined && item.salePrice < item.price;
+    const discountPercent = hasDiscount ? Math.round(((item.price - item.salePrice!) / item.price) * 100) : 0;
+
     const handleRemove = () => {
-        dispatch(removeFromCart(item.id))
+        dispatch(removeFromCart(item.id));
         showToast(`Đã xóa "${item.title}" ra khỏi giỏ`, 'info');
     };
 
     return (
-        <div className={owned ? 'cart-item cart-item--owned' : 'cart-item'}>
-            <Link to={`/products/${item.id}`}>
+        <div
+            className={`cart-item ${owned ? 'cart-item--owned' : ''} ${
+                !owned && checked ? 'cart-item--selected' : ''
+            }`}
+        >
+            <label className="cart-checkbox" aria-label={`Chọn ${item.title}`}>
+                <input
+                    type="checkbox"
+                    checked={!owned && checked}
+                    disabled={owned}
+                    onChange={() => onToggle(item.id)}
+                />
+            </label>
+
+            <Link to={`/products/${item.id}`} className="cart-item__thumb-link">
                 <img
-                    src={item.thumbnail || 'https://via.placeholder.com/100'}
+                    src={item.thumbnail || 'https://via.placeholder.com/160x100'}
                     alt={item.title}
                     className="item-img"
                 />
+                {hasDiscount && !owned && (
+                    <span className="cart-item__discount-badge">
+                        -{discountPercent}%
+                    </span>
+                )}
             </Link>
 
             <div className="item-info">
-                <h3 className="item-name">
-                    <Link to={`/products/${item.id}`} className="item-name-link">
-                        {item.title}
-                    </Link>
-                </h3>
+                <div className="item-header-row">
+                    <h3 className="item-name">
+                        <Link
+                            to={`/products/${item.id}`}
+                            className="item-name-link"
+                        >
+                            {item.title}
+                        </Link>
+                    </h3>
+                    {owned && (
+                        <span className="cart-owned-badge">Đã sở hữu</span>
+                    )}
+                </div>
+
                 <div className="item-provider">
                     Cung cấp bởi <span>SourceCodeTST</span>
                 </div>
+
                 {owned && (
                     <p className="cart-owned-note" role="alert">
-                        Bạn đã sở hữu mã nguồn này. <Link to="/profile?tab=da-mua">Tải xuống tại Hồ sơ</Link> hoặc xóa khỏi giỏ để thanh toán.
+                        Bạn đã sở hữu mã nguồn này.{' '}
+                        <Link to="/profile?tab=da-mua">
+                            Tải xuống tại Hồ sơ
+                        </Link>{' '}
+                        hoặc xóa khỏi giỏ để thanh toán.
                     </p>
                 )}
 
                 <div className="item-price-group">
-                    {item.salePrice !== undefined && item.salePrice < item.price ? (
-                            <>
+                    {hasDiscount ? (
+                        <>
                             <span className="item-price-sale">
-                                {item.salePrice.toLocaleString('vi-VN')} đ
+                                {item.salePrice!.toLocaleString('vi-VN')} đ
                             </span>
-                                <span className="item-price-original">
+                            <span className="item-price-original">
                                 {item.price.toLocaleString('vi-VN')} đ
-                        </span></>) :
-                        (<span className="item-price">
+                            </span>
+                        </>
+                    ) : (
+                        <span className="item-price">
                             {item.price.toLocaleString('vi-VN')} đ
-                        </span>)}
+                        </span>
+                    )}
                 </div>
             </div>
 
             <div className="item-actions">
                 <button
+                    type="button"
                     className="btn-remove"
                     onClick={handleRemove}
+                    title="Xóa khỏi giỏ hàng"
+                    aria-label={`Xóa ${item.title}`}
                 >
-                    Xóa
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    <span>Xóa</span>
                 </button>
             </div>
         </div>

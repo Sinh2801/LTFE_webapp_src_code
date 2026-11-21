@@ -6,6 +6,7 @@ const STORAGE_KEY = 'cart'
 
 interface CartState {
     items: Product[]
+    selectedIdx: string[]
 }
 function loadFromStorage(): Product[] {
     try {
@@ -20,8 +21,8 @@ export function saveCart(items: Product[]): void {
     } catch {
     }
 }
-
-const initialState: CartState = { items: loadFromStorage() }
+const initialItems = loadFromStorage()
+const initialState: CartState = { items: initialItems, selectedIdx: initialItems.map((p) => p.id) }
 
 const cartSlice = createSlice({
     name: 'cart',
@@ -37,14 +38,26 @@ const cartSlice = createSlice({
         },
         removeManyFromCart: (state, action: PayloadAction<string[]>) => {
             state.items = state.items.filter((p) => !action.payload.includes(p.id))
+            state.selectedIdx = state.selectedIdx.filter((id) => !action.payload.includes(id))
         },
         clearCart: (state) => {
             state.items = []
         },
+        toggleSelectItem: (state, action: PayloadAction<string>) => {
+            const id = action.payload
+            if (state.selectedIdx.includes(id)) {
+                state.selectedIdx = state.selectedIdx.filter((item) => item !== id)
+            } else {
+                state.selectedIdx.push(id)
+            }
+        },
+        setSelectedIds: (state, action: PayloadAction<string[]>) => {
+            state.selectedIdx = action.payload
+        },
     },
 })
 
-export const { addToCart, removeFromCart, removeManyFromCart, clearCart } = cartSlice.actions
+export const { addToCart, removeFromCart, removeManyFromCart, clearCart, toggleSelectItem, setSelectedIds, } = cartSlice.actions
 export const selectCartTotal = (state: { cart: CartState }): number =>
     state.cart.items.reduce((sum, p) => sum + (p.salePrice ?? p.price), 0)
 export default cartSlice.reducer
