@@ -5,12 +5,14 @@ import { addToCart } from '../app/slices/cartSlice'
 import { fetchOne, fetchRelated } from '../app/slices/productSlice'
 import ProductCard from '../components/common/ProductCard'
 import { useToast } from '../components/common/Toast'
+import { selectIsProductPurchased } from '../app/slices/orderSlice'
 
 const price = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 
 function ProductDetailPage() {
     const { id = '' } = useParams()
     const dispatch = useAppDispatch()
+    const isPurchased = useAppSelector((state) => selectIsProductPurchased(state, id))
     const { detail, detailStatus, related } = useAppSelector((state) => state.products)
     const { showToast } = useToast()
 
@@ -30,7 +32,17 @@ function ProductDetailPage() {
                 <p className="product-detail-rating">★ {detail.rating?.toFixed(1) ?? 'Chưa có đánh giá'} <span>·</span> {detail.reviewCount ?? 0} đánh giá <span>·</span> {detail.downloads.toLocaleString('vi-VN')} lượt tải</p>
                 <p className="product-detail-description">{detail.description}</p>
                 <div className="product-detail-price">{detail.salePrice !== undefined && detail.salePrice < detail.price ? <><strong>{price(detail.salePrice)}</strong><del>{price(detail.price)}</del></> : <strong>{price(detail.price)}</strong>}</div>
-                <button className="product-detail-buy" onClick={() => { dispatch(addToCart(detail)); showToast('Đã thêm sản phẩm vào giỏ hàng', 'success') }}>Thêm vào giỏ hàng</button>
+                {isPurchased ? (
+                    <button type="button" className="product-detail-buy product-detail-download" onClick={() => {}}>
+                        Tải xuống
+                    </button>
+                ) : (
+                    <button type="button" className="product-detail-buy" onClick={() => {
+                            dispatch(addToCart(detail))
+                            showToast('Đã thêm sản phẩm vào giỏ hàng', 'success')
+                        }}>Thêm vào giỏ hàng
+                    </button>
+                )}
                 {detail.demoUrl && <a className="product-detail-demo" href={detail.demoUrl} target="_blank" rel="noreferrer">Xem bản demo ↗</a>}
                 <div className="product-detail-facts"><span>Phiên bản<strong>{detail.version}</strong></span><span>Bản quyền<strong>{detail.license}</strong></span><span>Định dạng<strong>Mã nguồn tải về</strong></span></div>
                 <ul className="product-detail-tech">{detail.technologies.map((tech) => <li key={tech}>{tech}</li>)}</ul>

@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../app/hook'
 import { changePassword, setUser, updateProfile } from '../app/slices/authSlice'
 import { orderService } from '../libs/services'
 import type { Order } from '../libs/types'
+import { loadOrders } from '../app/slices/orderSlice.ts'
 import { formatPrice } from '../libs/format'
 import { getErrorMessage } from '../libs/apiClient'
 import { normalizeFullName, passwordResults, validateFullName, validatePassword } from '../libs/validation'
@@ -42,6 +43,7 @@ function ProfilePage() {
             .then((data) => {
                 if (!active) return
                 setOrders(data)
+                dispatch(loadOrders(data))
                 setOrdersStatus('loaded')
             })
             .catch((error: unknown) => {
@@ -150,7 +152,14 @@ function ProfilePage() {
                                 {order.items.map((item) => (
                                     <li key={item.productId}>
                                         <Link to={`/products/${item.productId}`}>{item.title}</Link>
-                                        <span>{formatPrice(item.price)}</span>
+                                        <div className="profile-order__item-actions">
+                                            <span>{formatPrice(item.price)}</span>
+                                            {order.status === 'paid' && (
+                                                <button type="button" className="btn-download" onClick={() => {}}>
+                                                    Tải xuống
+                                                </button>
+                                            )}
+                                        </div>
                                     </li>
                                 ))}
                             </ul>

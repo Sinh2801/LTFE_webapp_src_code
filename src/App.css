@@ -2730,6 +2730,63 @@
     transform: translateX(4px);
 }
 
+
+.profile-order__item-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.btn-download {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: var(--radius-small);
+    background: var(--success);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-download:hover {
+    background: var(--success-hover);
+    transform: translateY(-1px);
+}
+
+.btn-download:active {
+    transform: translateY(0);
+}
+
+.product-card__actions .product-card__download,
+.product-detail-buy.product-detail-download {
+    background: var(--success);
+    color: #fff;
+    border-color: transparent;
+}
+
+.product-card__actions .product-card__download:hover,
+.product-detail-buy.product-detail-download:hover {
+    background: var(--success-hover);
+}
+
+/* Card sản phẩm (ProductCard) */
+.product-card__actions .product-card__download {
+    background: #16a34a;
+    color: #fff;
+    border-color: transparent;
+}
+
+.product-card__actions .product-card__download:hover {
+    background: #15803d;
+}
+
 @media (max-width: 1100px) {
     .home-category-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .home-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

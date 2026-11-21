@@ -23,6 +23,7 @@
     --border: var(--border-color);
     --bg: var(--surface-muted);
 
+    --success-hover: #166534;
     --success: #15803d;
     --danger: #dc2626;
     --text-main: #172033;
@@ -38,6 +39,8 @@
 }
 
 :root[data-theme='dark'] {
+    --success: #16a34a;
+    --success-hover: #22c55e;
     color-scheme: dark;
     --brand-dark: #eef2f8;
     --brand-blue: #91b4ff;

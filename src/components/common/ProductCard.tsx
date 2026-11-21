@@ -6,6 +6,7 @@ import { toggleFavorite } from '../../app/slices/favoritesSlice'
 import { useAppSelector } from '../../app/hook'
 import { useToast } from './Toast'
 import type { Product } from '../../libs/types'
+import { selectIsProductPurchased } from '../../app/slices/orderSlice'
 
 interface ProductCardProps {
     product: Product
@@ -21,6 +22,7 @@ function ProductCard({ product }: ProductCardProps) {
     const [imageError, setImageError] = useState(false)
     const dispatch = useAppDispatch()
     const { showToast } = useToast()
+    const isPurchased = useAppSelector((state) => selectIsProductPurchased(state, product.id))
     const isFavorite = useAppSelector((state) => state.favorites.items.some((item) => item.id === product.id))
     const hasDiscount =
         product.salePrice !== undefined &&
@@ -78,7 +80,18 @@ function ProductCard({ product }: ProductCardProps) {
                 </div>
                 <div className="product-card__actions">
                     <Link className="product-card__details" to={`/products/${product.id}`}>Chi tiết</Link>
-                    <button type="button" onClick={() => { dispatch(addToCart(product)); showToast('Đã thêm sản phẩm vào giỏ hàng', 'success') }}>Thêm vào giỏ</button>
+                    {isPurchased ? (
+                        <button type="button" className="product-card__download" onClick={() => {}}>
+                            Tải xuống
+                        </button>
+                    ) : (
+                        <button type="button" onClick={() => {
+                                dispatch(addToCart(product))
+                                showToast('Đã thêm sản phẩm vào giỏ hàng', 'success')
+                            }}>
+                            Thêm vào giỏ
+                        </button>
+                    )}
                 </div>
             </div>
         </article>
