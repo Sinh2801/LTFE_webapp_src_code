@@ -1,12 +1,9 @@
 // Route fakeApi cho xác thực và hồ sơ (T07).
 import { API_BASE } from '../libs/apiClient'
-import type {UserRole, Order, Product, PaginatedResult} from '../libs/types'
 import {loadDb, nextId, saveDb, type FakeDb, type FakeProduct, type StoredOrder} from './db'
-import type {UserRole, Order, Product, PaymentMethod, PaginatedResult} from '../libs/types'
-import {loadDb, nextId, saveDb, type FakeDb, type StoredOrder, type FakeProduct} from './db'
+import type {UserRole, Order, Product, PaginatedResult} from '../libs/types'
 import type { SeedUser } from './seed'
 import { formatPrice, effectivePrice } from '../libs/format'
-import {SEED_PRODUCTS} from "./seed";
 import { normalizeEmail, normalizeFullName, validateEmail, validateFullName, validatePassword } from '../libs/validation'
 
 const LATENCY_MS = 300
@@ -375,7 +372,7 @@ add('POST', '/orders', async ({ token, body }) => {
 
     // Giá lấy từ danh mục phía server, không tin giá do client gửi lên
     const items = ids.map((id) => {
-        const product = findProduct(id)
+        const product = findProduct(db, id)
         if (hasPurchased(db, user.id, id)) {
             throw new HttpError(409, `Bạn đã sở hữu "${product.title}"`)
         }
@@ -421,15 +418,27 @@ add('POST', '/orders/:id/pay', async ({ params, token, body }) => {
     const alreadyOwned = order.items.find((item) => hasPurchased(db, user.id, item.productId))
     if (alreadyOwned) throw new HttpError(409, `Bạn đã sở hữu "${alreadyOwned.title}"`)
 
-    const paymentMethod: PaymentMethod = method
-    order.status = 'pending'
-    order.paymentMethod = paymentMethod
-    order.payOutcome = paymentMethod === 'wallet' ? 'failed' : 'paid'
-    order.payResolveAt = Date.now() + PAY_DELAY_MS
-    order.paidAt = null
+    resolvePayment(order)
     saveDb(db)
     return success(toPublicOrder(order), 202, 'Đang xử lý thanh toán')
 })
+
+function resolvePayment(order: StoredOrder): void {
+    if (order.status !== 'pending') return
+    if (order.payResolveAt === null) return
+    if (order.payOutcome === null) return
+
+    if (Date.now() < order.payResolveAt) return
+
+    order.status = order.payOutcome
+
+    if (order.status === 'paid') {
+        order.paidAt = new Date().toISOString()
+    }
+
+    order.payOutcome = null
+    order.payResolveAt = null
+}
 
 export function toPublicOrder(order: StoredOrder): Order {
     return {
@@ -450,8 +459,8 @@ function hasPurchased(db: FakeDb, userId: string, productId: string): boolean {
     )
 }
 
-function findProduct(id: string): Product {
-    const product = SEED_PRODUCTS.find((p) => p.id === id && p.status === 'approved')
+function findProduct(db: FakeDb,id: string): Product {
+    const product = db.products.find((p) => p.id === id && p.status === 'approved')
     if (!product) throw new HttpError(404, 'Sản phẩm không tồn tại')
     return product
 }
