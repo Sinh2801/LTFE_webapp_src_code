@@ -1,8 +1,9 @@
-import type { Category, Product, Order, OrderStatus, PaymentMethod } from '../libs/types'
-import { SEED_CATEGORIES, SEED_PRODUCTS, SEED_USERS, SEED_ORDERS ,type SeedUser } from './seed'
+import type { Category, Product, Order, OrderStatus, PaymentMethod, Review, WarrantyStatus, WarrantyType } from '../libs/types'
+import { SEED_CATEGORIES, SEED_PRODUCTS, SEED_USERS, SEED_ORDERS, makeSeedReviews, type SeedUser } from './seed'
 
 const DB_KEY = 'fakeDb'
-const DB_VERSION = 21
+const DB_VERSION = 22
+const COMPATIBLE_VERSION = 21
 
 export interface FakeProduct extends Product {
     previewFileId?: string
@@ -24,6 +25,29 @@ export interface StoredOrder {
     payResolveAt: number | null
 }
 
+export interface DownloadLog {
+    id: string
+    userId: string
+    productId: string
+    at: string
+}
+
+export interface StoredTicket {
+    id: string
+    userId: string
+    productId: string
+    productTitle: string
+    orderId: string
+    type: WarrantyType
+    description: string
+    status: WarrantyStatus
+    reply: string | null
+    createdAt: string
+    updatedAt: string
+    processAt: number | null
+    resolveAt: number | null
+}
+
 export interface FakeDb {
     version: number
     seq: number
@@ -32,6 +56,9 @@ export interface FakeDb {
     products: FakeProduct[]
     orders: StoredOrder[]
     categories: Category[]
+    reviews: Review[]
+    downloads: DownloadLog[]
+    tickets: StoredTicket[]
 }
 
 function seedDb(): FakeDb {
@@ -43,6 +70,9 @@ function seedDb(): FakeDb {
         products: SEED_PRODUCTS.map((p: Product) => ({ ...p })),
         orders: SEED_ORDERS.map((o) => ({ ...o, items: o.items.map((i) => ({ ...i })), payOutcome: null, payResolveAt: null })),
         categories: SEED_CATEGORIES.map((c: Category) => ({ ...c })),
+        reviews: makeSeedReviews(),
+        downloads: [],
+        tickets: [],
     }
 }
 
@@ -59,7 +89,7 @@ export function loadDb(): FakeDb {
         const raw = localStorage.getItem(DB_KEY)
         if (raw) {
             const parsed = JSON.parse(raw) as Partial<FakeDb>
-            if (parsed.version === DB_VERSION) {
+            if (parsed.version === DB_VERSION || parsed.version === COMPATIBLE_VERSION) {
                 db = {
                     version: DB_VERSION,
                     seq: typeof parsed.seq === 'number' ? parsed.seq : 100,
@@ -69,10 +99,20 @@ export function loadDb(): FakeDb {
                     products: Array.isArray(parsed.products) ? parsed.products : SEED_PRODUCTS.map((p: Product) => ({ ...p })),
                     categories: Array.isArray(parsed.categories)
                         ? parsed.categories
-                        : SEED_CATEGORIES.map((c: Category) => ({ ...c }))
+                        : SEED_CATEGORIES.map((c: Category) => ({ ...c })),
+                    reviews: Array.isArray(parsed.reviews) ? parsed.reviews : makeSeedReviews(),
+                    downloads: Array.isArray(parsed.downloads) ? parsed.downloads : [],
+                    tickets: Array.isArray(parsed.tickets) ? parsed.tickets : [],
+                }
+                let changed = parsed.version !== DB_VERSION
+                if (!Array.isArray(parsed.reviews)) changed = true
+                for (const order of SEED_ORDERS) {
+                    if (!db.orders.some((item) => item.id === order.id)) {
+                        db.orders.push({ ...order, items: order.items.map((i) => ({ ...i })), payOutcome: null, payResolveAt: null })
+                        changed = true
+                    }
                 }
                 const existing = new Set(db.users.map((u) => u.email.toLowerCase()))
-                let changed = false
                 for (const user of db.users) {
                     const legacyUser = user as SeedUser & { role: string }
                     if (legacyUser.role !== 'buyer') {

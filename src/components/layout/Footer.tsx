@@ -55,9 +55,9 @@ function Footer() {
                     <a href="/#how-it-works">Mua trong 3 bước</a>
                     <a href="/#danh-gia">Đánh giá khách hàng</a>
                     <a href="/#tin-tuc">Góc công nghệ</a>
-                    <span>Kiểm duyệt chất lượng 100%</span>
-                    <span>Tải file tức thì sau thanh toán</span>
-                    <span>Hỗ trợ kỹ thuật khi cài đặt</span>
+                    <Link to="/chinh-sach#mua-va-tai">Mua một lần, tải nhiều lần</Link>
+                    <Link to="/chinh-sach#bao-hanh">Chính sách bảo hành</Link>
+                    <Link to="/chinh-sach#huong-dan-cai-dat">Hướng dẫn cài đặt</Link>
                 </div>
 
                 <div className="footer-column">
@@ -94,7 +94,7 @@ function Footer() {
                         <span>•</span>
                         <span>Điều khoản dịch vụ</span>
                         <span>•</span>
-                        <span>Chính sách hoàn tiền</span>
+                        <Link to="/chinh-sach#hoan-tien">Chính sách hoàn tiền</Link>
                     </div>
                 </div>
             </div>

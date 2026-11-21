@@ -1,9 +1,9 @@
 ﻿import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAppDispatch } from '../../app/hook'
+import { useAppDispatch, useAppSelector } from '../../app/hook'
 import { addToCart } from '../../app/slices/cartSlice'
 import { toggleFavorite } from '../../app/slices/favoritesSlice'
-import { useAppSelector } from '../../app/hook'
+import { selectIsOwned } from '../../app/slices/librarySlice'
 import { useToast } from './Toast'
 import type { Product } from '../../libs/types'
 import { selectIsProductPurchased } from '../../app/slices/orderSlice'
@@ -22,7 +22,7 @@ function ProductCard({ product }: ProductCardProps) {
     const [imageError, setImageError] = useState(false)
     const dispatch = useAppDispatch()
     const { showToast } = useToast()
-    const isPurchased = useAppSelector((state) => selectIsProductPurchased(state, product.id))
+    const owned = useAppSelector(selectIsOwned(product.id))
     const isFavorite = useAppSelector((state) => state.favorites.items.some((item) => item.id === product.id))
     const hasDiscount =
         product.salePrice !== undefined &&
@@ -43,7 +43,7 @@ function ProductCard({ product }: ProductCardProps) {
                         Chưa có ảnh
                     </div>
                 )}
-                {product.featured && <span className="product-card__badge">Hot</span>}
+                {owned ? <span className="product-card__badge product-card__badge--owned">Đã sở hữu</span> : product.featured && <span className="product-card__badge">Hot</span>}
             </Link>
             <button className={`product-card__favorite ${isFavorite ? 'is-active' : ''}`} aria-label={isFavorite ? 'Bỏ khỏi yêu thích' : 'Thêm vào yêu thích'} aria-pressed={isFavorite} onClick={() => dispatch(toggleFavorite(product))}>
                 <svg viewBox="0 0 24 24" aria-hidden="true" className="heart-icon">
@@ -80,18 +80,9 @@ function ProductCard({ product }: ProductCardProps) {
                 </div>
                 <div className="product-card__actions">
                     <Link className="product-card__details" to={`/products/${product.id}`}>Chi tiết</Link>
-                    {isPurchased ? (
-                        <button type="button" className="product-card__download" onClick={() => {}}>
-                            Tải xuống
-                        </button>
-                    ) : (
-                        <button type="button" onClick={() => {
-                                dispatch(addToCart(product))
-                                showToast('Đã thêm sản phẩm vào giỏ hàng', 'success')
-                            }}>
-                            Thêm vào giỏ
-                        </button>
-                    )}
+                    {owned
+                        ? <Link className="product-card__owned-link" to="/profile?tab=da-mua">Tải về</Link>
+                        : <button type="button" onClick={() => { dispatch(addToCart(product)); showToast('Đã thêm sản phẩm vào giỏ hàng', 'success') }}>Thêm vào giỏ</button>}
                 </div>
             </div>
         </article>

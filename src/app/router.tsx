@@ -13,6 +13,8 @@ import RegisterPage from "../pages/RegisterPage.tsx";
 import ProfilePage from '../pages/ProfilePage';
 import ProductDetailPage from '../pages/ProductDetailPage';
 import FavoritesPage from '../pages/FavoritesPage';
+import OrderDetailPage from '../pages/OrderDetailPage';
+import PolicyPage from '../pages/PolicyPage';
 
 const router = createBrowserRouter([
     {
@@ -35,11 +37,19 @@ const router = createBrowserRouter([
                 element: <FavoritesPage />,
             },
             {
+                path: '/chinh-sach',
+                element: <PolicyPage />,
+            },
+            {
                 element: <ProtectedRoute />,
                 children: [
                     {
                         path: '/checkout',
                         element: <CheckoutPage />,
+                    },
+                    {
+                        path: '/orders/:id',
+                        element: <OrderDetailPage />,
                     },
                     {
                         path: '/profile',

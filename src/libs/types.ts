@@ -103,6 +103,39 @@ export interface Review {
     rating: number
     comment: string
     createdAt: string
+    updatedAt?: string
+}
+
+export interface ReviewSummary {
+    items: Review[]
+    average: number
+    count: number
+    distribution: Record<1 | 2 | 3 | 4 | 5, number>
+    mine: Review | null
+}
+export interface LibraryItem extends Product {
+    orderId: string
+    purchasedAt: string
+    downloadCount: number
+    lastDownloadedAt: string | null
+    warrantyExpiresAt: string
+}
+
+export type WarrantyType = 'bug' | 'install' | 'other'
+export type WarrantyStatus = 'open' | 'processing' | 'resolved'
+
+export interface WarrantyTicket {
+    id: string
+    userId: string
+    productId: string
+    productTitle: string
+    orderId: string
+    type: WarrantyType
+    description: string
+    status: WarrantyStatus
+    reply: string | null
+    createdAt: string
+    updatedAt: string
 }
 
 export interface CartItem {

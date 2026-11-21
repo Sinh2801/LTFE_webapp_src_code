@@ -61,3 +61,10 @@ export function validatePassword(password: string): string | null {
 export function validateLoginPassword(password: string): string | null {
     return password.length > 0 ? null : 'Vui lòng nhập mật khẩu'
 }
+
+export const COMMENT_MAX = 500
+export function validateReview(rating: number, comment: string): string | null {
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return 'Vui lòng chọn số sao từ 1 đến 5'
+    if (comment.trim().length > COMMENT_MAX) return `Nhận xét tối đa ${COMMENT_MAX} ký tự`
+    return null
+}

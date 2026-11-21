@@ -1,6 +1,7 @@
 import { api, downloadFile } from './apiClient'
 import type {
-    AuthResponse, Category, Order, PaginatedResult, PaymentMethod, Product, ProductQuery, Review, User,
+    AuthResponse, Category, LibraryItem, Order, PaginatedResult, PaymentMethod, Product, ProductQuery, Review,
+    ReviewSummary, User, WarrantyTicket, WarrantyType,
 } from './types'
 
 export const authService = {
@@ -26,9 +27,11 @@ export const catalogService = {
         api.get<PaginatedResult<Product>>('/products', { auth: false, query: { ...query } }),
     product: (id: string) => api.get<Product>(`/products/${encodeURIComponent(id)}`, { auth: false }),
     reviews: (productId: string) =>
-        api.get<Review[]>(`/products/${encodeURIComponent(productId)}/reviews`, { auth: false }),
+        api.get<ReviewSummary>(`/products/${encodeURIComponent(productId)}/reviews`),
     addReview: (productId: string, body: { rating: number; comment: string }) =>
         api.post<Review>(`/products/${encodeURIComponent(productId)}/reviews`, body),
+    updateReview: (reviewId: string, body: { rating: number; comment: string }) =>
+        api.put<Review>(`/reviews/${encodeURIComponent(reviewId)}`, body),
 }
 
 export const orderService = {
@@ -40,7 +43,13 @@ export const orderService = {
 }
 
 export const libraryService = {
-    list: () => api.get<Product[]>('/library'),
+    list: () => api.get<LibraryItem[]>('/library'),
     download: (productId: string) =>
         downloadFile(`/products/${encodeURIComponent(productId)}/download`),
+}
+
+export const warrantyService = {
+    list: () => api.get<WarrantyTicket[]>('/warranty-requests'),
+    create: (body: { productId: string; type: WarrantyType; description: string }) =>
+        api.post<WarrantyTicket>('/warranty-requests', body),
 }
