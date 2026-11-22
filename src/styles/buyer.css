@@ -26,6 +26,7 @@
 }
 
 .stars {
+    --fill: 0%;
     display: inline-block;
     letter-spacing: 1px;
     line-height: 1;
@@ -209,7 +210,6 @@
 .review-list__more { margin: 16px auto 0; display: flex; }
 .review-empty { padding: 26px; border: 1px dashed var(--border-color); border-radius: 12px; text-align: center; }
 
-/* ---------- giỏ hàng & thanh toán ---------- */
 .cart-item--owned { background: var(--warn-bg); border-radius: 12px; outline: 2px solid var(--warn-fg); outline-offset: -2px; }
 .cart-owned-note { margin: 6px 0; color: var(--warn-fg); font-size: .84rem; font-weight: 600; }
 .cart-owned-note a { color: inherit; text-decoration: underline; }
@@ -263,10 +263,89 @@
 .order-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
 
+
+.policy-banner {
+    position: relative;
+    width: 100%;
+    min-height: 500px;
+    background-color: #040817;
+    background-image: url('../assets/policy-banner-bg.png');
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+    overflow: hidden;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.policy-banner__content {
+    position: relative;
+    z-index: 2;
+    padding: 24px;
+}
+
+.policy-banner__sub {
+    display: block;
+    font-size: 1.5rem;
+    color: #ff9b21;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+}
+
+.policy-banner__title {
+    margin: 0;
+    color: #ffffff;
+    font-size: 3rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    text-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.ux-shape-divider {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    line-height: 0;
+    bottom: 0;
+    z-index: 1;
+}
+
+.ux-shape-divider svg {
+    display: block;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 48px;
+    width: 100%;
+}
+
+.ux-shape-fill {
+    fill: var(--surface-muted);
+}
+
+.policy-intro {
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.policy-intro p {
+    margin: 0;
+}
+
 .policy-page { max-width: 980px; margin: 0 auto; padding: 36px 24px 72px; }
-.policy-hero { margin-bottom: 22px; padding: 34px; border-radius: 20px; background: linear-gradient(135deg, var(--brand-blue-soft), var(--surface)); border: 1px solid var(--border-color); }
-.policy-hero h1 { margin: 8px 0; color: var(--brand-blue); font-size: clamp(1.7rem, 3.4vw, 2.5rem); letter-spacing: -.03em; }
-.policy-hero p { max-width: 640px; margin: 0; color: var(--text-muted); line-height: 1.65; }
+
 .policy-nav { position: sticky; top: 74px; z-index: 5; display: flex; gap: 8px; overflow-x: auto; margin-bottom: 26px; padding: 10px; border: 1px solid var(--border-color); border-radius: 14px; background: var(--surface); }
 .policy-nav a { padding: 8px 14px; border-radius: 999px; color: var(--text-main); font-size: .86rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
 .policy-nav a:hover { background: var(--brand-blue-soft); color: var(--brand-blue); }
@@ -296,10 +375,14 @@
 
 @media (max-width: 560px) {
     .order-page, .policy-page { padding: 24px 16px 48px; }
+    .policy-banner { min-height: 250px; }
+    .policy-banner__sub { font-size: 1.1rem; }
+    .policy-banner__title { font-size: 1.9rem; letter-spacing: 1px; }
+    .ux-shape-divider svg { height: 30px; }
+
     .invoice__item-main { align-items: flex-start; flex-wrap: wrap; }
     .invoice__item-actions .btn-solid, .invoice__item-actions .btn-ghost { flex: 1 1 100%; }
-    .policy-hero { padding: 24px 20px; }
-    .policy-nav { top: 0; }
+        .policy-nav { top: 0; }
     .detail-tabs__list button { padding: 12px 14px; }
 }
 

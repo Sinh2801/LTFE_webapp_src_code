@@ -33,12 +33,10 @@
 .brand-accent {
     color: #FC734C;
     background: linear-gradient(100deg, #ff9b21 0%, #FC734C 45%, #ff5e32 75%, #ff9b21 100%);
-    background-size: 220% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: inline-block;
-    animation: category-title-gradient 4s ease-in-out infinite;
 }
 
 .brand-logo {
@@ -337,6 +335,9 @@
     background: var(--input-bg);
     color: var(--brand-blue);
 }
+[data-theme='dark'] .theme-toggle {
+    color: #facc15;
+}
 
 .theme-toggle svg {
     width: 21px;
@@ -380,7 +381,7 @@
 .site-footer {
     background: #02070a;
     color: white;
-    margin-top: 50px;
+    margin-top: 0;
     border-top: 1px solid #1e293b;
 }
 
@@ -594,13 +595,6 @@
     justify-content: space-between;
     gap: 16px;
     margin-bottom: 20px;
-}
-
-.cart-header__title-group {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
 }
 
 .cart-header__title-group {
@@ -1209,7 +1203,7 @@
     background: transparent;
     cursor: pointer;
     box-shadow: none;
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: transform 0.2s ease;
 }
 
 .product-card__favorite:hover {
@@ -1370,7 +1364,7 @@
 .home-faq,
 .home-contact {
     position: relative;
-    isolation: isolate;
+    z-index: 1;
 }
 
 .home-trust::before,
@@ -2250,8 +2244,7 @@
     margin-bottom: 22px;
 }
 
-.home-section__heading h2,
-.home-store-banner h2 {
+.home-section__heading h2 {
     margin: 7px 0 0;
     color: var(--brand-blue);
     font-size: clamp(1.45rem, 2.5vw, 2rem);
@@ -2277,7 +2270,7 @@
 
 .home-category-section {
     position: relative;
-    isolation: isolate;
+    z-index: 1;
     margin-top: 0;
     padding: 36px 0 32px;
 }
@@ -2329,21 +2322,11 @@
 .home-latest-heading h2 span {
     color: #f07818;
     background: linear-gradient(100deg, #ff9b21 0%, #f07818 38%, #ff6b12 62%, #ff9b21 100%);
-    background-size: 220% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: category-title-gradient 5s ease-in-out infinite;
 }
 
-@keyframes category-title-gradient {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .home-category-heading h2 span { animation: none; }
-}
 .home-section__heading > .home-category-all {
     display: inline-flex;
     min-height: 38px;
@@ -2695,7 +2678,7 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.14);
     overflow: hidden;
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    transition: transform 0.3s ease,
                 border-color 0.3s ease,
                 box-shadow 0.3s ease;
 }
@@ -2781,7 +2764,7 @@
     max-height: 160px;
     object-fit: contain;
     filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.45));
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.3s ease;
 }
 
 .home-step:hover .home-step__img {
@@ -2881,16 +2864,21 @@
     align-items: center;
     justify-content: space-between;
     gap: 32px;
-    margin: 68px 0 24px;
-    padding: 42px 48px;
-    border-radius: 20px;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    box-sizing: border-box;
+    margin-top: 68px;
+    margin-bottom: 0;
+    padding: 48px max(24px, calc((100vw - 1340px) / 2 + 24px));
+    border-radius: 0;
     background-color: #070d1e;
     background-image: url('./assets/store-banner-bg.png');
-    background-size: 100% 100%;
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     color: #ffffff;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    box-shadow: none;
     overflow: hidden;
 }
 
@@ -2922,12 +2910,10 @@
 .home-store-banner .home-section__eyebrow .eyebrow-accent {
     color: #FC734C;
     background: linear-gradient(100deg, #ff9b21 0%, #FC734C 45%, #ff8a68 100%);
-    background-size: 200% auto;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 800;
-    animation: category-title-gradient 4s ease-in-out infinite;
 }
 
 .home-store-banner h2 {
@@ -2943,11 +2929,9 @@
 .home-store-banner h2 span {
     color: #FC734C;
     background: linear-gradient(100deg, #ff9b21 0%, #FC734C 45%, #ff8a68 100%);
-    background-size: 200% auto;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: category-title-gradient 4s ease-in-out infinite;
 }
 
 .home-store-banner p {
@@ -3188,7 +3172,7 @@
     .home-category-card { min-height: 158px; padding: 14px; }
     .home-category-card__icon { width: 70px; height: 70px; }
     .home-steps { grid-template-columns: 1fr; }
-    .home-store-banner { align-items: flex-start; flex-direction: column; margin-top: 48px; padding: 26px 22px; }
+    .home-store-banner { align-items: flex-start; flex-direction: column; margin-top: 48px; margin-bottom: 0; padding: 26px 22px; }
 }
 
 @media (max-width: 430px) {
@@ -3572,11 +3556,9 @@
 .home-tech-heading h2 span {
     color: #f07818;
     background: linear-gradient(100deg, #ff9b21 0%, #f07818 38%, #ff6b12 62%, #ff9b21 100%);
-    background-size: 220% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: category-title-gradient 5s ease-in-out infinite;
 }
 
 .tech-corner-grid {
@@ -3818,11 +3800,9 @@
 .tech-marquee-heading h2 span {
     color: #f07818;
     background: linear-gradient(100deg, #ff9b21 0%, #f07818 38%, #ff6b12 62%, #ff9b21 100%);
-    background-size: 220% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: category-title-gradient 5s ease-in-out infinite;
 }
 
 .marquee-wrapper {
@@ -3961,11 +3941,9 @@
 .customer-reviews-header h2 span {
     color: #f07818;
     background: linear-gradient(100deg, #ff9b21 0%, #f07818 38%, #ff6b12 62%, #ff9b21 100%);
-    background-size: 220% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: category-title-gradient 5s ease-in-out infinite;
 }
 
 .customer-reviews-badge {
