@@ -37,7 +37,6 @@ function ProductDetailPage() {
     const count = liveSummary ? liveSummary.count : detail.reviewCount ?? 0
 
     return <main className="product-detail-page">
-        <nav className="breadcrumbs" aria-label="Đường dẫn"><Link to="/">Trang chủ</Link><span>/</span><Link to="/products">Sản phẩm</Link><span>/</span><span>{detail.title}</span></nav>
         <div className="product-detail-layout">
             <div className="product-detail-image">{detail.thumbnail ? <img src={detail.thumbnail} alt={`Ảnh xem trước ${detail.title}`} /> : <div>Chưa có ảnh xem trước</div>}</div>
             <section className="product-detail-summary">

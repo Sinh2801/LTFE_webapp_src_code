@@ -71,7 +71,6 @@ function OrderDetailPage() {
     const warranty = warrantyFrom(purchasedAt)
 
     return <main className="order-page">
-        <nav className="breadcrumbs" aria-label="Đường dẫn"><Link to="/">Trang chủ</Link><span>/</span><Link to="/profile?tab=don-hang">Đơn hàng</Link><span>/</span><span>{order.id}</span></nav>
 
         {paid && justPaid && <div className="order-banner order-banner--ok" role="status"><span aria-hidden="true">✓</span><div><strong>Thanh toán thành công</strong><p>Cảm ơn bạn đã mua hàng. Mã nguồn đã sẵn sàng để tải xuống ngay bên dưới.</p></div></div>}
         {order.status === 'pending' && <div className="order-banner order-banner--wait" role="status"><span className="loading__spinner" /><div><strong>{stalled ? 'Giao dịch vẫn chưa có kết quả' : 'Đang xử lý thanh toán...'}</strong><p>{stalled ? 'Hệ thống phản hồi chậm hơn bình thường.' : 'Vui lòng không đóng trang, kết quả sẽ tự cập nhật.'}</p>{stalled && <button type="button" className="btn-solid" onClick={() => setPolls(0)}>Kiểm tra lại</button>}</div></div>}
