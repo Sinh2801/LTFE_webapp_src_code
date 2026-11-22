@@ -4,7 +4,6 @@ import { getErrorMessage } from '../../libs/apiClient'
 import { orderService } from '../../libs/services'
 import type { Order, OrderStatus } from '../../libs/types'
 import { logout } from './authSlice'
-import type { RootState } from '../store'
 
 type RequestStatus = 'idle' | 'loading' | 'succeeded' | 'failed'
 
