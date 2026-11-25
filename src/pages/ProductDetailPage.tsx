@@ -7,6 +7,8 @@ import { Stars } from '../components/common/Stars'
 import BuyBox from '../components/product/BuyBox'
 import type { DetailTab } from '../components/product/BuyBox'
 import ProductTabs from '../components/product/ProductTabs'
+import { Download } from 'lucide-react';
+
 
 const TABS: DetailTab[] = ['mo-ta', 'cai-dat', 'bao-hanh', 'danh-gia']
 
@@ -36,6 +38,7 @@ function ProductDetailPage() {
     const average = liveSummary ? liveSummary.average : detail.rating ?? 0
     const count = liveSummary ? liveSummary.count : detail.reviewCount ?? 0
 
+
     return <main className="product-detail-page">
         <div className="product-detail-layout">
             <div className="product-detail-image">{detail.thumbnail ? <img src={detail.thumbnail} alt={`Ảnh xem trước ${detail.title}`} /> : <div>Chưa có ảnh xem trước</div>}</div>
@@ -43,11 +46,11 @@ function ProductDetailPage() {
                 <span className="product-detail-category">{detail.category}</span>
                 <h1>{detail.title}</h1>
                 <p className="product-detail-rating">
-                    {count > 0 ? <><Stars value={average} size={15} /> <strong>{average.toFixed(1)}</strong></> : 'Chưa có đánh giá'}
-                    <span>·</span>
-                    <button type="button" className="link-button" onClick={() => selectTab('danh-gia')}>{count.toLocaleString('vi-VN')} đánh giá</button>
-                    <span>·</span>{detail.downloads.toLocaleString('vi-VN')} lượt tải
+                    {count > 0 ? <><Stars value={average} size={15} /> <strong>{average.toFixed(1)}/5</strong></> : 'Chưa có đánh giá'}
+                    <button id="review-link" type="button" className="link-button" onClick={() => selectTab('danh-gia')}>( {count.toLocaleString('vi-VN')} đánh giá )</button>
                 </p>
+                <div className={"download"}><Download size={14} strokeWidth={2}/><b> {detail.downloads.toLocaleString('vi-VN')}</b> lượt tải</div>
+
                 <p className="product-detail-description">{detail.description}</p>
                 <BuyBox product={detail} onSelectTab={selectTab} />
                 <div className="product-detail-facts"><span>Phiên bản<strong>{detail.version}</strong></span><span>Bản quyền<strong>{detail.license}</strong></span><span>Định dạng<strong>Mã nguồn tải về</strong></span></div>

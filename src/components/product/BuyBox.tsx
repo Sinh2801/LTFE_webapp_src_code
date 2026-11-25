@@ -8,6 +8,7 @@ import { useDownload } from '../../hooks/useDownload'
 import { formatDate, formatPrice, hasDiscount } from '../../libs/format'
 import type { Product } from '../../libs/types'
 import { WARRANTY_DAYS, warrantyFrom } from '../../libs/warranty'
+import { ExternalLink, Heart } from 'lucide-react';
 
 export type DetailTab = 'mo-ta' | 'cai-dat' | 'bao-hanh' | 'danh-gia'
 
@@ -81,12 +82,12 @@ function BuyBox({ product, onSelectTab }: BuyBoxProps) {
             )}
 
             <div className="buy-box__secondary">
-                {product.demoUrl && <a className="product-detail-demo" href={product.demoUrl} target="_blank" rel="noreferrer">Xem bản demo ↗</a>}
+                {product.demoUrl && (<a className="product-detail-demo" href={product.demoUrl} target="_blank" rel="noreferrer"><ExternalLink size={16} strokeWidth={2.2} /><span>Xem bản demo</span></a>)}
                 <button type="button" className={`buy-box__fav ${isFavorite ? 'is-active' : ''}`} aria-pressed={isFavorite} onClick={() => dispatch(toggleFavorite(product))}>
-                    {isFavorite ? '♥ Đã lưu yêu thích' : '♡ Lưu vào yêu thích'}
+                    <Heart size={16} strokeWidth={2.2} fill={isFavorite ? 'currentColor' : 'none'}/>
+                    <span>{isFavorite ? 'Đã lưu yêu thích' : 'Lưu vào yêu thích'}</span>
                 </button>
             </div>
-
             <ul className="benefit-list">
                 {BENEFITS.map((item) => <li key={item}>{item}</li>)}
             </ul>

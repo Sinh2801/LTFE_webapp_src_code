@@ -4,6 +4,7 @@ import { selectIsOwned } from '../../app/slices/librarySlice';
 import { useAppSelector } from '../../app/hook';
 import type { Product } from '../../libs/types.ts';
 import { useToast } from '../../components/common/Toast.tsx';
+import { Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface CartItemProps {
@@ -106,20 +107,8 @@ export function CartItem({ item, checked, onToggle }: CartItemProps) {
                     className="btn-remove"
                     onClick={handleRemove}
                     title="Xóa khỏi giỏ hàng"
-                    aria-label={`Xóa ${item.title}`}
-                >
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    >
-                        <path d="M3 6h18" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
+                    aria-label={`Xóa ${item.title}`}>
+                    <Trash2 size={16} strokeWidth={1.8} />
                     <span>Xóa</span>
                 </button>
             </div>
