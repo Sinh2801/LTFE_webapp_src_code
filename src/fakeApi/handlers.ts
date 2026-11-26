@@ -1,7 +1,7 @@
 import { API_BASE } from '../libs/apiClient'
-import type {UserRole, Order, Product, PaymentMethod, PaginatedResult, Review, ReviewSummary, LibraryItem, WarrantyTicket, WarrantyType,
+import type {UserRole, Order, Product, PaymentMethod, PaginatedResult, Review, ReviewSummary, LibraryItem, WarrantyTicket, WarrantyType, AuthProvider, MailMessage, SocialProvider,
 } from '../libs/types'
-import {loadDb as loadStoredDb, nextId, saveDb, type FakeDb, type StoredOrder, type StoredTicket, type FakeProduct} from './db'
+import {loadDb as loadStoredDb, nextId, saveDb, type FakeDb, type StoredOrder, type StoredTicket, type FakeProduct, type ResetRecord} from './db'
 import type { SeedUser } from './seed'
 import { formatPrice, effectivePrice } from '../libs/format'
 import {SEED_PRODUCTS, makeSeedReviews} from "./seed";
@@ -22,12 +22,14 @@ const TICKET_RESOLVE_MS = 20000
 export class HttpError extends Error {
     status: number
     errors: string[]
+    retryAfter?: number
 
-    constructor(status: number, message: string, errors: string[] = []) {
+    constructor(status: number, message: string, errors: string[] = [], retryAfter?: number) {
         super(message)
         this.name = 'HttpError'
         this.status = status
         this.errors = errors
+        this.retryAfter = retryAfter
     }
 }
 
@@ -53,6 +55,10 @@ function loadDb(): FakeDb {
     if (!Array.isArray(db.reviews)) db.reviews = makeSeedReviews()
     if (!Array.isArray(db.downloads)) db.downloads = []
     if (!Array.isArray(db.tickets)) db.tickets = []
+    if (!db.sessionExpiry || typeof db.sessionExpiry !== 'object') db.sessionExpiry = {}
+    if (!db.loginAttempts || typeof db.loginAttempts !== 'object') db.loginAttempts = {}
+    if (!Array.isArray(db.resets)) db.resets = []
+    if (!Array.isArray(db.mailbox)) db.mailbox = []
     return db
 }
 
@@ -86,13 +92,20 @@ function success<T>(data: T, status = 200, message = 'Request successful'): Resp
     return json({ success: true, message, data }, status)
 }
 
-function failure(status: number, message: string, errors: string[] = []): Response {
-    return json({ success: false, message, errors }, status)
+function failure(status: number, message: string, errors: string[] = [], retryAfter?: number): Response {
+    return json({ success: false, message, errors, ...(retryAfter !== undefined ? { retryAfter } : {}) }, status)
 }
 
 
 export function requireUser(db: FakeDb, token: string | null): SeedUser {
     if (!token) throw new HttpError(401, 'Bạn cần đăng nhập để thực hiện thao tác này')
+    const expiresAt = db.sessionExpiry?.[token]
+    if (expiresAt !== undefined && expiresAt <= Date.now()) {
+        delete db.sessions[token]
+        delete db.sessionExpiry[token]
+        saveDb(db)
+        throw new HttpError(401, 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại')
+    }
     const userId = db.sessions[token]
     const user = db.users.find((u) => u.id === userId)
     if (!user) throw new HttpError(401, 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại')
@@ -104,10 +117,20 @@ interface PublicUser {
     email: string
     role: UserRole
     createdAt: string
+    providers: AuthProvider[]
+    hasPassword: boolean
 }
 
 function publicUser(user: SeedUser): PublicUser {
-    return { id: user.id, fullName: user.fullName, email: user.email, role: user.role, createdAt: user.createdAt }
+    return {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        providers: user.providers && user.providers.length > 0 ? user.providers : ['password'],
+        hasPassword: user.hasPassword !== false,
+    }
 }
 
 function normalizeText(value: string): string {
@@ -275,6 +298,49 @@ function makeToken(): string {
 }
 
 
+const SESSION_REMEMBER_MS = 30 * DAY_MS
+const SESSION_SHORT_MS = 12 * 60 * 60 * 1000
+export const MAX_LOGIN_ATTEMPTS = 5
+export const LOGIN_LOCK_MS = 60 * 1000
+export const RESET_CODE_TTL_MS = 5 * 60 * 1000
+export const RESET_RESEND_MS = 30 * 1000
+export const RESET_MAX_ATTEMPTS = 5
+const RESET_TOKEN_TTL_MS = 10 * 60 * 1000
+const MAILBOX_LIMIT = 10
+
+const secondsLeft = (until: number): number => Math.max(1, Math.ceil((until - Date.now()) / 1000))
+
+/** Tạo token đăng nhập. Ghi nhớ đăng nhập: 30 ngày; không ghi nhớ: 12 giờ. */
+function issueSession(db: FakeDb, userId: string, remember: boolean): string {
+    const now = Date.now()
+    for (const [token, expiresAt] of Object.entries(db.sessionExpiry)) {
+        if (expiresAt <= now) {
+            delete db.sessionExpiry[token]
+            delete db.sessions[token]
+        }
+    }
+    const token = makeToken()
+    db.sessions[token] = userId
+    db.sessionExpiry[token] = now + (remember ? SESSION_REMEMBER_MS : SESSION_SHORT_MS)
+    return token
+}
+
+function dropSessionsOf(db: FakeDb, userId: string): void {
+    for (const [token, owner] of Object.entries(db.sessions)) {
+        if (owner === userId) {
+            delete db.sessions[token]
+            delete db.sessionExpiry[token]
+        }
+    }
+}
+
+function addProvider(user: SeedUser, provider: AuthProvider): boolean {
+    const providers = user.providers && user.providers.length > 0 ? user.providers : ['password' as AuthProvider]
+    const isNew = !providers.includes(provider)
+    user.providers = isNew ? [...providers, provider] : providers
+    return isNew
+}
+
 add('POST', '/auth/register', async ({ body }) => {
     const input = bodyObject(body)
     assertValid(validateFullName(String(input.fullName ?? '')))
@@ -297,10 +363,11 @@ add('POST', '/auth/register', async ({ body }) => {
         passwordSalt,
         passwordHash: await hashPassword(passwordSalt, password),
         createdAt: new Date().toISOString(),
+        providers: ['password'],
+        hasPassword: true,
     }
-    const token = makeToken()
     db.users.push(user)
-    db.sessions[token] = user.id
+    const token = issueSession(db, user.id, input.remember !== false)
     saveDb(db)
     return success({ user: publicUser(user), access_token: token }, 201, 'Register successful')
 })
@@ -318,15 +385,169 @@ add('POST', '/auth/login', async ({ body }) => {
     const password = typeof input.password === 'string' ? input.password : ''
 
     const db = loadDb()
-    const user = db.users.find((u) => u.email === email)
-    if (!user || !(await verifyPassword(user, password))) {
-        throw new HttpError(401, 'Email hoặc mật khẩu không đúng')
+    const now = Date.now()
+    const attempt = db.loginAttempts[email]
+    if (attempt && attempt.lockedUntil > now) {
+        const wait = secondsLeft(attempt.lockedUntil)
+        throw new HttpError(429, `Bạn đã nhập sai quá ${MAX_LOGIN_ATTEMPTS} lần. Vui lòng thử lại sau ${wait} giây`, [], wait)
     }
 
-    const token = makeToken()
-    db.sessions[token] = user.id
+    const user = db.users.find((u) => u.email === email)
+    if (user && user.hasPassword === false) {
+        throw new HttpError(401, 'Tài khoản này được tạo bằng Google/Facebook và chưa có mật khẩu. Hãy đăng nhập bằng mạng xã hội hoặc chọn "Quên mật khẩu" để tạo mật khẩu.')
+    }
+    if (!user || !(await verifyPassword(user, password))) {
+        const record = db.loginAttempts[email] ?? { count: 0, lockedUntil: 0 }
+        record.count += 1
+        if (record.count >= MAX_LOGIN_ATTEMPTS) {
+            record.count = 0
+            record.lockedUntil = now + LOGIN_LOCK_MS
+            db.loginAttempts[email] = record
+            saveDb(db)
+            const wait = secondsLeft(record.lockedUntil)
+            throw new HttpError(429, `Bạn đã nhập sai quá ${MAX_LOGIN_ATTEMPTS} lần. Vui lòng thử lại sau ${wait} giây`, [], wait)
+        }
+        db.loginAttempts[email] = record
+        saveDb(db)
+        throw new HttpError(401, `Email hoặc mật khẩu không đúng. Bạn còn ${MAX_LOGIN_ATTEMPTS - record.count} lần thử.`)
+    }
+
+    delete db.loginAttempts[email]
+    const token = issueSession(db, user.id, input.remember !== false)
     saveDb(db)
     return success({ user: publicUser(user), access_token: token }, 200, 'Login successful')
+})
+
+add('POST', '/auth/social', async ({ body }) => {
+    const input = bodyObject(body)
+    const provider = input.provider as SocialProvider
+    if (provider !== 'google' && provider !== 'facebook') {
+        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Nhà cung cấp đăng nhập không được hỗ trợ'])
+    }
+    assertValid(validateEmail(String(input.email ?? '')))
+    const email = normalizeEmail(String(input.email))
+    const rawName = normalizeFullName(String(input.fullName ?? ''))
+    const fullName = rawName.length >= 2 ? rawName.slice(0, 50) : email.split('@')[0]
+
+    const db = loadDb()
+    let user = db.users.find((u) => u.email === email)
+    let isNewUser = false
+    let linked = false
+    if (user) {
+        linked = addProvider(user, provider)
+    } else {
+        isNewUser = true
+        user = {
+            id: nextId(db, 'u'),
+            role: 'buyer',
+            fullName,
+            email,
+            passwordSalt: newSalt(),
+            passwordHash: newSalt() + newSalt(),
+            createdAt: new Date().toISOString(),
+            providers: [provider],
+            hasPassword: false,
+        }
+        db.users.push(user)
+    }
+    delete db.loginAttempts[email]
+    const token = issueSession(db, user.id, input.remember !== false)
+    saveDb(db)
+    return success({ user: publicUser(user), access_token: token, isNewUser, linked }, isNewUser ? 201 : 200, 'Login successful')
+})
+
+add('POST', '/auth/forgot-password', async ({ body }) => {
+    const input = bodyObject(body)
+    assertValid(validateEmail(String(input.email ?? '')))
+    const email = normalizeEmail(String(input.email))
+    const db = loadDb()
+    const now = Date.now()
+
+    const current = db.resets.find((r) => r.email === email)
+    if (current && current.resendAt > now) {
+        const wait = secondsLeft(current.resendAt)
+        throw new HttpError(429, `Vui lòng chờ ${wait} giây trước khi yêu cầu gửi lại mã`, [], wait)
+    }
+    db.resets = db.resets.filter((r) => r.email !== email && r.expiresAt > now)
+
+    const user = db.users.find((u) => u.email === email)
+    const code = user ? String(Math.floor(100000 + Math.random() * 900000)) : ''
+    const record: ResetRecord = {
+        email, code, expiresAt: now + RESET_CODE_TTL_MS, attempts: 0, resendAt: now + RESET_RESEND_MS,
+        resetToken: null, tokenExpiresAt: null,
+    }
+    db.resets.push(record)
+    if (user) {
+        const mail: MailMessage = {
+            id: nextId(db, 'mail'),
+            to: email,
+            subject: 'Mã xác nhận đặt lại mật khẩu SourceCodeTST',
+            body: `Xin chào ${user.fullName},\n\nBạn vừa yêu cầu đặt lại mật khẩu. Mã xác nhận của bạn là ${code}.\nMã có hiệu lực trong ${RESET_CODE_TTL_MS / 60000} phút và chỉ dùng được một lần.\n\nNếu bạn không yêu cầu, hãy bỏ qua email này, tài khoản của bạn vẫn an toàn.`,
+            code,
+            sentAt: new Date(now).toISOString(),
+        }
+        db.mailbox = [mail, ...db.mailbox.filter((m) => m.to === email).slice(0, MAILBOX_LIMIT - 1), ...db.mailbox.filter((m) => m.to !== email)]
+    }
+    saveDb(db)
+    return success({ sent: true, expiresIn: RESET_CODE_TTL_MS / 1000, resendAfter: RESET_RESEND_MS / 1000 }, 200, 'Nếu email tồn tại, mã xác nhận đã được gửi')
+})
+
+add('POST', '/auth/verify-reset-code', async ({ body }) => {
+    const input = bodyObject(body)
+    const email = normalizeEmail(String(input.email ?? ''))
+    const code = String(input.code ?? '').trim()
+    const db = loadDb()
+    const now = Date.now()
+    const record = db.resets.find((r) => r.email === email)
+    if (!record || !record.code || record.expiresAt <= now) {
+        throw new HttpError(400, 'Mã xác nhận không hợp lệ hoặc đã hết hạn. Hãy yêu cầu mã mới.')
+    }
+    if (record.attempts >= RESET_MAX_ATTEMPTS) {
+        throw new HttpError(429, `Bạn đã nhập sai quá ${RESET_MAX_ATTEMPTS} lần. Hãy yêu cầu mã mới.`)
+    }
+    if (code !== record.code) {
+        record.attempts += 1
+        if (record.attempts >= RESET_MAX_ATTEMPTS) {
+            record.code = ''
+            saveDb(db)
+            throw new HttpError(429, `Bạn đã nhập sai quá ${RESET_MAX_ATTEMPTS} lần. Hãy yêu cầu mã mới.`)
+        }
+        saveDb(db)
+        throw new HttpError(400, `Mã xác nhận không đúng. Bạn còn ${RESET_MAX_ATTEMPTS - record.attempts} lần thử.`)
+    }
+    record.code = ''
+    record.resetToken = makeToken()
+    record.tokenExpiresAt = now + RESET_TOKEN_TTL_MS
+    saveDb(db)
+    return success({ resetToken: record.resetToken }, 200, 'Mã xác nhận hợp lệ')
+})
+
+add('POST', '/auth/reset-password', async ({ body }) => {
+    const input = bodyObject(body)
+    const email = normalizeEmail(String(input.email ?? ''))
+    const resetToken = String(input.resetToken ?? '')
+    assertValid(validatePassword(String(input.newPassword ?? '')))
+    const db = loadDb()
+    const record = db.resets.find((r) => r.email === email)
+    const user = db.users.find((u) => u.email === email)
+    if (!record || !user || !record.resetToken || record.resetToken !== resetToken || !record.tokenExpiresAt || record.tokenExpiresAt <= Date.now()) {
+        throw new HttpError(400, 'Phiên đặt lại mật khẩu đã hết hạn, vui lòng thực hiện lại từ đầu.')
+    }
+    user.passwordSalt = newSalt()
+    user.passwordHash = await hashPassword(user.passwordSalt, String(input.newPassword))
+    user.hasPassword = true
+    addProvider(user, 'password')
+    db.resets = db.resets.filter((r) => r.email !== email)
+    delete db.loginAttempts[email]
+    dropSessionsOf(db, user.id)
+    saveDb(db)
+    return success(null, 200, 'Đã đặt lại mật khẩu')
+})
+
+add('GET', '/auth/dev-mailbox', async ({ query }) => {
+    const email = normalizeEmail(query.get('email') ?? '')
+    const db = loadDb()
+    return success(db.mailbox.filter((m) => m.to === email))
 })
 
 add('GET', '/auth/me', async ({ token }) => {
@@ -336,7 +557,10 @@ add('GET', '/auth/me', async ({ token }) => {
 
 add('POST', '/auth/logout', async ({ token }) => {
     const db = loadDb()
-    if (token) delete db.sessions[token]
+    if (token) {
+        delete db.sessions[token]
+        delete db.sessionExpiry[token]
+    }
     saveDb(db)
     return success(null, 200, 'Logout successful')
 })
@@ -356,14 +580,18 @@ add('PUT', '/users/me/password', async ({ token, body }) => {
     const db = loadDb()
     const user = requireUser(db, token)
     const input = bodyObject(body)
-    const current = typeof input.currentPassword === 'string' ? input.currentPassword : ''
-    if (!(await verifyPassword(user, current))) {
-        throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Mật khẩu hiện tại không đúng'])
+    if (user.hasPassword !== false) {
+        const current = typeof input.currentPassword === 'string' ? input.currentPassword : ''
+        if (!(await verifyPassword(user, current))) {
+            throw new HttpError(422, 'Dữ liệu không hợp lệ', ['Mật khẩu hiện tại không đúng'])
+        }
     }
     const newPassword = String(input.newPassword ?? '')
     assertValid(validatePassword(newPassword))
     user.passwordSalt = newSalt()
     user.passwordHash = await hashPassword(user.passwordSalt, newPassword)
+    user.hasPassword = true
+    addProvider(user, 'password')
     saveDb(db)
     return success(null, 200, 'Password updated')
 })
@@ -738,7 +966,7 @@ export async function handleFakeRequest(url: URL, init?: RequestInit): Promise<R
     try {
         return await matched.route.handler({ params: matched.params, query: url.searchParams, body, token })
     } catch (error) {
-        if (error instanceof HttpError) return failure(error.status, error.message, error.errors)
+        if (error instanceof HttpError) return failure(error.status, error.message, error.errors, error.retryAfter)
         console.error('[fake-api]', error)
         return failure(500, 'Lỗi máy chủ giả lập')
     }

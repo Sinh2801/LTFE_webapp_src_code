@@ -5,12 +5,14 @@ export const API_BASE = '/api/v1'
 export class ApiError extends Error {
     status: number
     errors: string[]
+    retryAfter?: number
 
-    constructor(status: number, message: string, errors: string[] = []) {
+    constructor(status: number, message: string, errors: string[] = [], retryAfter?: number) {
         super(message)
         this.name = 'ApiError'
         this.status = status
         this.errors = errors
+        this.retryAfter = retryAfter
     }
 }
 
@@ -19,6 +21,7 @@ interface ApiPayload {
     message?: string
     data?: unknown
     errors?: string[]
+    retryAfter?: number
 }
 
 type QueryValue = string | number | boolean | null | undefined
@@ -65,6 +68,7 @@ function defaultMessage(status: number): string {
     if (status === 401) return 'Bạn cần đăng nhập để thực hiện thao tác này'
     if (status === 403) return 'Bạn không có quyền thực hiện thao tác này'
     if (status === 404) return 'Không tìm thấy dữ liệu'
+    if (status === 429) return 'Bạn thao tác quá nhanh, vui lòng thử lại sau'
     return 'Có lỗi xảy ra, vui lòng thử lại'
 }
 
@@ -86,7 +90,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
     if (!res.ok) {
         handleUnauthorized(res.status, auth)
-        throw new ApiError(res.status, payload?.message ?? defaultMessage(res.status), payload?.errors ?? [])
+        throw new ApiError(res.status, payload?.message ?? defaultMessage(res.status), payload?.errors ?? [], payload?.retryAfter)
     }
     return (payload?.data ?? null) as T
 }

@@ -1,17 +1,39 @@
 export type UserRole = 'buyer'
 export type ProductStatus = 'approved' | 'hidden'
 
+export type AuthProvider = 'password' | 'google' | 'facebook'
+export type SocialProvider = 'google' | 'facebook'
+
 export interface User {
     id: string
     fullName: string
     email: string
     role: UserRole
     createdAt: string
+    providers?: AuthProvider[]
+    hasPassword?: boolean
 }
 
 export interface AuthResponse {
     user: User
     access_token: string
+    isNewUser?: boolean
+    linked?: boolean
+}
+
+export interface ForgotPasswordResult {
+    sent: boolean
+    expiresIn: number
+    resendAfter: number
+}
+
+export interface MailMessage {
+    id: string
+    to: string
+    subject: string
+    body: string
+    code: string
+    sentAt: string
 }
 
 export interface Category {

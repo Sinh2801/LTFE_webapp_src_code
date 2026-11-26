@@ -3,7 +3,7 @@ import type {PayloadAction} from '@reduxjs/toolkit'
 import { ApiError, getErrorMessage } from '../../libs/apiClient'
 import { authService, userService } from '../../libs/services'
 import { clearToken, getToken, setToken } from '../../libs/tokenStorage'
-import type { User} from '../../libs/types'
+import type { SocialProvider, User } from '../../libs/types'
 
 interface AuthState {
     user: User | null
@@ -34,13 +34,27 @@ export const restoreSession = createAsyncThunk<User | null>('auth/restoreSession
 
 export const loginUser = createAsyncThunk<
     { user: User; token: string },
-    { email: string; password: string },
-    { rejectValue: string }
+    { email: string; password: string; remember?: boolean },
+    { rejectValue: { message: string; retryAfter?: number } }
 >('auth/login', async (body, { rejectWithValue }) => {
     try {
         const data = await authService.login(body)
-        setToken(data.access_token)
+        setToken(data.access_token, body.remember !== false)
         return { user: data.user, token: data.access_token }
+    } catch (error) {
+        return rejectWithValue({ message: getErrorMessage(error), retryAfter: error instanceof ApiError ? error.retryAfter : undefined })
+    }
+})
+
+export const socialLogin = createAsyncThunk<
+    { user: User; token: string; isNewUser: boolean; linked: boolean },
+    { provider: SocialProvider; email: string; fullName: string; remember?: boolean },
+    { rejectValue: string }
+>('auth/socialLogin', async (body, { rejectWithValue }) => {
+    try {
+        const data = await authService.socialLogin(body)
+        setToken(data.access_token, body.remember !== false)
+        return { user: data.user, token: data.access_token, isNewUser: data.isNewUser === true, linked: data.linked === true }
     } catch (error) {
         return rejectWithValue(getErrorMessage(error))
     }
@@ -48,12 +62,12 @@ export const loginUser = createAsyncThunk<
 
 export const registerUser = createAsyncThunk<
     { user: User; token: string },
-    { fullName: string; email: string; password: string },
+    { fullName: string; email: string; password: string; remember?: boolean },
     { rejectValue: string }
 >('auth/register', async (body, { rejectWithValue }) => {
     try {
         const data = await authService.register(body)
-        setToken(data.access_token)
+        setToken(data.access_token, body.remember !== false)
         return { user: data.user, token: data.access_token }
     } catch (error) {
         return rejectWithValue(getErrorMessage(error))
@@ -73,7 +87,7 @@ export const updateProfile = createAsyncThunk<User, { fullName: string }, { reje
 
 export const changePassword = createAsyncThunk<
     void,
-    { currentPassword: string; newPassword: string },
+    { currentPassword?: string; newPassword: string },
     { rejectValue: string }
 >('auth/changePassword', async (body, { rejectWithValue }) => {
     try {
@@ -129,6 +143,20 @@ const authSlice = createSlice({
                 state.initialized = true
             })
             .addCase(loginUser.rejected, (state, action) => {
+                state.status = 'failed'
+                state.error = action.payload?.message ?? 'Đăng nhập thất bại'
+            })
+            .addCase(socialLogin.pending, (state) => {
+                state.status = 'loading'
+                state.error = null
+            })
+            .addCase(socialLogin.fulfilled, (state, action) => {
+                state.status = 'idle'
+                state.user = action.payload.user
+                state.token = action.payload.token
+                state.initialized = true
+            })
+            .addCase(socialLogin.rejected, (state, action) => {
                 state.status = 'failed'
                 state.error = action.payload ?? 'Đăng nhập thất bại'
             })
