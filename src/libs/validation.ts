@@ -68,3 +68,25 @@ export function validateReview(rating: number, comment: string): string | null {
     if (comment.trim().length > COMMENT_MAX) return `Nhận xét tối đa ${COMMENT_MAX} ký tự`
     return null
 }
+
+export const RESET_CODE_LENGTH = 6
+
+export function validateResetCode(code: string): string | null {
+    if (!code) return 'Vui lòng nhập mã xác nhận'
+    if (!/^\d{6}$/.test(code)) return `Mã xác nhận gồm ${RESET_CODE_LENGTH} chữ số`
+    return null
+}
+
+export interface PasswordStrength {
+    score: 0 | 1 | 2 | 3 | 4
+    label: string
+}
+
+export function passwordStrength(password: string): PasswordStrength {
+    if (!password) return { score: 0, label: '' }
+    const passed = PASSWORD_RULES.filter((rule) => rule.test(password)).length
+    let score = passed <= 3 ? 1 : passed === 4 ? 2 : passed === 5 ? 3 : 4
+    if (passed === PASSWORD_RULES.length && password.length < 12) score = 3
+    const labels = ['', 'Yếu', 'Trung bình', 'Khá mạnh', 'Rất mạnh']
+    return { score: score as PasswordStrength['score'], label: labels[score] }
+}

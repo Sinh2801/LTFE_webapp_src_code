@@ -1,4 +1,4 @@
-import type { Category, Product, Order, OrderStatus, PaymentMethod, Review, WarrantyStatus, WarrantyType } from '../libs/types'
+import type { Category, MailMessage, Product, Order, OrderStatus, PaymentMethod, Review, WarrantyStatus, WarrantyType } from '../libs/types'
 import { SEED_CATEGORIES, SEED_PRODUCTS, SEED_USERS, SEED_ORDERS, makeSeedReviews, type SeedUser } from './seed'
 
 const DB_KEY = 'fakeDb'
@@ -48,6 +48,22 @@ export interface StoredTicket {
     resolveAt: number | null
 }
 
+
+export interface ResetRecord {
+    email: string
+    code: string
+    expiresAt: number
+    attempts: number
+    resendAt: number
+    resetToken: string | null
+    tokenExpiresAt: number | null
+}
+
+export interface LoginAttempt {
+    count: number
+    lockedUntil: number
+}
+
 export interface FakeDb {
     version: number
     seq: number
@@ -59,6 +75,10 @@ export interface FakeDb {
     reviews: Review[]
     downloads: DownloadLog[]
     tickets: StoredTicket[]
+    sessionExpiry: Record<string, number>
+    loginAttempts: Record<string, LoginAttempt>
+    resets: ResetRecord[]
+    mailbox: MailMessage[]
 }
 
 function seedDb(): FakeDb {
@@ -73,6 +93,10 @@ function seedDb(): FakeDb {
         reviews: makeSeedReviews(),
         downloads: [],
         tickets: [],
+        sessionExpiry: {},
+        loginAttempts: {},
+        resets: [],
+        mailbox: [],
     }
 }
 
@@ -103,6 +127,10 @@ export function loadDb(): FakeDb {
                     reviews: Array.isArray(parsed.reviews) ? parsed.reviews : makeSeedReviews(),
                     downloads: Array.isArray(parsed.downloads) ? parsed.downloads : [],
                     tickets: Array.isArray(parsed.tickets) ? parsed.tickets : [],
+                    sessionExpiry: parsed.sessionExpiry && typeof parsed.sessionExpiry === 'object' ? parsed.sessionExpiry : {},
+                    loginAttempts: parsed.loginAttempts && typeof parsed.loginAttempts === 'object' ? parsed.loginAttempts : {},
+                    resets: Array.isArray(parsed.resets) ? parsed.resets : [],
+                    mailbox: Array.isArray(parsed.mailbox) ? parsed.mailbox : [],
                 }
                 let changed = parsed.version !== DB_VERSION
                 if (!Array.isArray(parsed.reviews)) changed = true

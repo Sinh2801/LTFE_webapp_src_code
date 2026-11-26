@@ -1,4 +1,4 @@
-import type {Category, Order, Product, Review, UserRole} from '../libs/types'
+import type {AuthProvider, Category, Order, Product, Review, UserRole} from '../libs/types'
 import { DAY_MS } from '../libs/warranty'
 import ecommerceCategoryImage from '../assets/category-ecommerce.png'
 import managementCategoryImage from '../assets/category-management.png'
@@ -27,6 +27,8 @@ export interface SeedUser {
     passwordHash: string
     role: UserRole
     createdAt: string
+    providers?: AuthProvider[]
+    hasPassword?: boolean
 }
 
 export const SEED_USERS: SeedUser[] = [

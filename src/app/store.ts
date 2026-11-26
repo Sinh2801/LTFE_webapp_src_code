@@ -40,6 +40,12 @@ store.subscribe(() => {
 })
 
 window.addEventListener('auth:unauthorized', () => {
+    if (store.getState().auth.user) {
+        try {
+            sessionStorage.setItem('auth:expired', '1')
+        } catch {
+        }
+    }
     clearToken()
     store.dispatch(logout())
 })
