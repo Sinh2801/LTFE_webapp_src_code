@@ -15,6 +15,8 @@ import ProductDetailPage from '../pages/ProductDetailPage';
 import FavoritesPage from '../pages/FavoritesPage';
 import OrderDetailPage from '../pages/OrderDetailPage';
 import PolicyPage from '../pages/PolicyPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import SocialAuthPage from '../pages/SocialAuthPage';
 
 const router = createBrowserRouter([
     {
@@ -39,6 +41,19 @@ const router = createBrowserRouter([
             {
                 path: '/chinh-sach',
                 element: <PolicyPage />,
+            },
+
+            {
+                path: '/login',
+                element: <LoginPage />,
+            },
+            {
+                path: '/register',
+                element: <RegisterPage />,
+            },
+            {
+                path: '/forgot-password',
+                element: <ForgotPasswordPage />,
             },
             {
                 element: <ProtectedRoute />,
@@ -68,12 +83,8 @@ const router = createBrowserRouter([
         ],
     },
     {
-        path: '/login',
-        element: <LoginPage />,
-    },
-    {
-        path: '/register',
-        element: <RegisterPage />
+        path: '/auth/social/:provider',
+        element: <SocialAuthPage />
     },
 ]);
 
