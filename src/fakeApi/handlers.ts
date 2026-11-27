@@ -177,8 +177,22 @@ function optionalPrice(query: URLSearchParams, key: string): number | undefined 
     return value
 }
 
-function productPrice(product: Product): number {
-    return product.salePrice ?? product.price
+function optionalRating(query: URLSearchParams, key: string): number | undefined {
+    const raw = query.get(key)
+    if (raw === null || raw.trim() === '') return undefined
+    const value = Number(raw)
+    if (!Number.isFinite(value) || value < 1 || value > 5) {
+        throw new HttpError(422, 'Đánh giá tối thiểu phải từ 1 đến 5 sao')
+    }
+    return value
+}
+
+function optionalBoolean(query: URLSearchParams, key: string): boolean | undefined {
+    const raw = query.get(key)
+    if (raw === null || raw.trim() === '') return undefined
+    if (raw === 'true' || raw === '1') return true
+    if (raw === 'false' || raw === '0') return false
+    throw new HttpError(422, `Tham số ${key} không hợp lệ`)
 }
 
 add('GET', '/categories', async () => {
@@ -204,15 +218,21 @@ add('GET', '/products', async ({ query }) => {
     const tech = normalizeText(query.get('tech') ?? '')
     const minPrice = optionalPrice(query, 'minPrice')
     const maxPrice = optionalPrice(query, 'maxPrice')
-    const featuredValue = query.get('featured')
-    if (featuredValue !== null && featuredValue !== 'true' && featuredValue !== 'false') {
-        throw new HttpError(422, 'Tham số featured không hợp lệ')
+    if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
+        throw new HttpError(422, 'Giá tối thiểu không được lớn hơn giá tối đa')
     }
+    const minRating = optionalRating(query, 'rating')
+    const onSale = optionalBoolean(query, 'onSale') ?? optionalBoolean(query, 'sale')
+    const featured = optionalBoolean(query, 'featured')
+
     const sort = query.get('sort') ?? 'newest'
     const validSorts = ['newest', 'popular', 'best-selling', 'rating', 'price_asc', 'price_desc', 'price-asc', 'price-desc', 'name_asc']
     if (!validSorts.includes(sort)) throw new HttpError(422, 'Cách sắp xếp không hợp lệ')
 
-    let products = db.products.filter((product) => product.status === 'approved').map((product) => publicProduct(db, product))
+    let products = db.products
+        .filter((product) => product.status === 'approved')
+        .map((product) => publicProduct(db, product))
+
     if (keyword) {
         products = products.filter((product) => {
             const content = [product.title, product.description, product.code, product.category, ...product.features, ...product.technologies]
@@ -222,17 +242,31 @@ add('GET', '/products', async ({ query }) => {
         })
     }
     if (categoryValue) {
-        products = products.filter((product) => category
-            ? product.categoryId === category.id || normalizeText(product.category) === normalizeText(category.name)
-            : normalizeText(product.categoryId ?? '') === categoryText || normalizeText(product.category) === categoryText)
+        products = products.filter((product) =>
+            category
+                ? product.categoryId === category.id || normalizeText(product.category) === normalizeText(category.name)
+                : normalizeText(product.categoryId ?? '') === categoryText || normalizeText(product.category) === categoryText
+        )
     }
     if (tech) {
         products = products.filter((product) => product.technologies.some((item) => normalizeText(item).includes(tech)))
     }
-    if (minPrice !== undefined) products = products.filter((product) => productPrice(product) >= minPrice)
-    if (maxPrice !== undefined) products = products.filter((product) => productPrice(product) <= maxPrice)
-    if (featuredValue !== null) {
-        const featured = featuredValue === 'true'
+    if (minPrice !== undefined) {
+        products = products.filter((product) => effectivePrice(product) >= minPrice)
+    }
+    if (maxPrice !== undefined) {
+        products = products.filter((product) => effectivePrice(product) <= maxPrice)
+    }
+    if (minRating !== undefined) {
+        products = products.filter((product) => (product.rating ?? 0) >= minRating)
+    }
+    if (onSale !== undefined) {
+        products = products.filter((product) => {
+            const isDiscounted = product.salePrice != null && product.salePrice < product.price
+            return isDiscounted === onSale
+        })
+    }
+    if (featured !== undefined) {
         products = products.filter((product) => Boolean(product.featured) === featured)
     }
 
@@ -241,10 +275,10 @@ add('GET', '/products', async ({ query }) => {
         popular: (a, b) => b.downloads - a.downloads,
         'best-selling': (a, b) => b.downloads - a.downloads,
         rating: (a, b) => (b.rating ?? 0) - (a.rating ?? 0),
-        price_asc: (a, b) => productPrice(a) - productPrice(b),
-        'price-asc': (a, b) => productPrice(a) - productPrice(b),
-        price_desc: (a, b) => productPrice(b) - productPrice(a),
-        'price-desc': (a, b) => productPrice(b) - productPrice(a),
+        price_asc: (a, b) => effectivePrice(a) - effectivePrice(b),
+        'price-asc': (a, b) => effectivePrice(a) - effectivePrice(b),
+        price_desc: (a, b) => effectivePrice(b) - effectivePrice(a),
+        'price-desc': (a, b) => effectivePrice(b) - effectivePrice(a),
         name_asc: (a, b) => normalizeText(a.title).localeCompare(normalizeText(b.title)),
     }
     products.sort(comparators[sort])
