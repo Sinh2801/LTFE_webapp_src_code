@@ -84,8 +84,10 @@ export interface ProductQuery {
     tech?: string
     minPrice?: number
     maxPrice?: number
-    sort?: ProductSort
+    rating?: number
+    onSale?: boolean
     featured?: boolean
+    sort?: ProductSort
 }
 
 export interface PaginatedResult<T> {
